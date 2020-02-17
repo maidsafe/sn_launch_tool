@@ -7,11 +7,10 @@
 // specific language governing permissions and limitations relating to use of the SAFE Network
 // Software.
 
-mod nlt;
-
 use env_logger;
 use log::{debug, error};
-use nlt::run;
+use safe_nlt::run;
+pub use safe_nlt::run_with;
 use std::process;
 
 fn main() {
