@@ -94,14 +94,13 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
     }
 
     // Construct genesis vault's command arguments
-    let mut genesis_vault_args = common_args.clone();
-    genesis_vault_args.push("--first");
     let genesis_vault_dir = &args.vaults_dir.join("safe-vault-genesis");
     let genesis_vault_dir_str = genesis_vault_dir.display().to_string();
-    genesis_vault_args.push("--root-dir");
-    genesis_vault_args.push(&genesis_vault_dir_str);
-    genesis_vault_args.push("--log-dir");
-    genesis_vault_args.push(&genesis_vault_dir_str);
+    let genesis_vault_args = build_vault_args(
+        common_args.clone(),
+        &genesis_vault_dir_str,
+        None, /* genesis */
+    );
 
     // Let's launch genesis vault now
     let msg = "Launching genesis vault (#1)...";
@@ -114,8 +113,8 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
     // Get port number of genesis vault to pass it as hard-coded contact to the other vaults
     let interval_duration = Duration::from_secs(args.interval);
     thread::sleep(interval_duration);
-    let genesis_contant_info = grep_connection_info(&genesis_vault_dir.join("safe_vault.log"))?;
-    let msg = format!("Genesis vault contact info: {}", genesis_contant_info);
+    let genesis_contact_info = grep_connection_info(&genesis_vault_dir.join("safe_vault.log"))?;
+    let msg = format!("Genesis vault contact info: {}", genesis_contact_info);
     if args.verbosity > 0 {
         println!("{}", msg);
     }
@@ -124,19 +123,14 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
     // We can now run the rest of the vaults
     for i in 2..args.num_vaults + 1 {
         // Construct current vault's command arguments
-        let mut current_vault_args = common_args.clone();
         let vault_dir = &args
             .vaults_dir
             .join(&format!("safe-vault-{}", i))
             .display()
             .to_string();
 
-        current_vault_args.push("--root-dir");
-        current_vault_args.push(vault_dir);
-        current_vault_args.push("--log-dir");
-        current_vault_args.push(vault_dir);
-        current_vault_args.push("--hard-coded-contacts");
-        current_vault_args.push(&genesis_contant_info);
+        let current_vault_args =
+            build_vault_args(common_args.clone(), &vault_dir, Some(&genesis_contact_info));
 
         let msg = format!("Launching vault #{}...", i);
         if args.verbosity > 0 {
@@ -168,6 +162,26 @@ fn get_vault_bin_path(vault_path: Option<PathBuf>) -> Result<PathBuf, String> {
             Ok(path)
         }
     }
+}
+
+fn build_vault_args<'a>(
+    mut base_args: Vec<&'a str>,
+    vault_dir: &'a str,
+    contact_info: Option<&'a str>,
+) -> Vec<&'a str> {
+    if let Some(contact) = contact_info {
+        base_args.push("--hard-coded-contacts");
+        base_args.push(contact);
+    } else {
+        base_args.push("--first");
+    }
+
+    base_args.push("--root-dir");
+    base_args.push(vault_dir);
+    base_args.push("--log-dir");
+    base_args.push(vault_dir);
+
+    base_args
 }
 
 fn run_vault_cmd(vault_path: &PathBuf, args: &[&str], verbosity: u8) -> Result<(), String> {
