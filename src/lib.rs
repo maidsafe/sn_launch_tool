@@ -9,11 +9,13 @@
 
 use directories::BaseDirs;
 use log::debug;
+use regex::Regex;
 use std::{
-    /*io::{self, Write},*/
+    fs,
     path::PathBuf,
     process::{Command, Stdio},
-    thread, time,
+    thread,
+    time::Duration,
 };
 use structopt::StructOpt;
 
@@ -81,8 +83,6 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
     }
     debug!("{}", msg);
 
-    // TODO: read genesis IP and port number from genesis vault stdout output
-    let genesis_port_number = "40000";
     let mut common_args: Vec<&str> = vec![];
 
     let mut verbosity = String::from("-");
@@ -96,15 +96,12 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
     // Construct genesis vault's command arguments
     let mut genesis_vault_args = common_args.clone();
     genesis_vault_args.push("--first");
-    let genesis_vault_dir = &args
-        .vaults_dir
-        .join("safe-vault-genesis")
-        .display()
-        .to_string();
+    let genesis_vault_dir = &args.vaults_dir.join("safe-vault-genesis");
+    let genesis_vault_dir_str = genesis_vault_dir.display().to_string();
     genesis_vault_args.push("--root-dir");
-    genesis_vault_args.push(genesis_vault_dir);
-    genesis_vault_args.push("--port");
-    genesis_vault_args.push(genesis_port_number);
+    genesis_vault_args.push(&genesis_vault_dir_str);
+    genesis_vault_args.push("--log-dir");
+    genesis_vault_args.push(&genesis_vault_dir_str);
 
     // Let's launch genesis vault now
     let msg = "Launching genesis vault (#1)...";
@@ -114,12 +111,18 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
     debug!("{}", msg);
     run_vault_cmd(&vault_bin_path, &genesis_vault_args, args.verbosity)?;
 
+    // Get port number of genesis vault to pass it as hard-coded contact to the other vaults
+    let interval_duration = Duration::from_secs(args.interval);
+    thread::sleep(interval_duration);
+    let genesis_contant_info = grep_connection_info(&genesis_vault_dir.join("safe_vault.log"))?;
+    let msg = format!("Genesis vault contact info: {}", genesis_contant_info);
+    if args.verbosity > 0 {
+        println!("{}", msg);
+    }
+    debug!("{}", msg);
+
     // We can now run the rest of the vaults
     for i in 2..args.num_vaults + 1 {
-        // We wait for a few secs before launching each new vault
-        let interval_duration = time::Duration::from_secs(args.interval);
-        thread::sleep(interval_duration);
-
         // Construct current vault's command arguments
         let mut current_vault_args = common_args.clone();
         let vault_dir = &args
@@ -130,9 +133,10 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
 
         current_vault_args.push("--root-dir");
         current_vault_args.push(vault_dir);
+        current_vault_args.push("--log-dir");
+        current_vault_args.push(vault_dir);
         current_vault_args.push("--hard-coded-contacts");
-        let contacts = format!("[\"127.0.0.1:{}\"]", genesis_port_number);
-        current_vault_args.push(&contacts);
+        current_vault_args.push(&genesis_contant_info);
 
         let msg = format!("Launching vault #{}...", i);
         if args.verbosity > 0 {
@@ -140,6 +144,9 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
         }
         debug!("{}", msg);
         run_vault_cmd(&vault_bin_path, &current_vault_args, args.verbosity)?;
+
+        // We wait for a few secs before launching each new vault
+        thread::sleep(interval_duration);
     }
 
     println!("Done!");
@@ -183,25 +190,28 @@ fn run_vault_cmd(vault_path: &PathBuf, args: &[&str], verbosity: u8) -> Result<(
             )
         })?;
 
-    /*let output = child.wait_with_output().map_err(|err| {
+    Ok(())
+}
+
+fn grep_connection_info(log_path: &PathBuf) -> Result<String, String> {
+    let regex_query = Regex::new(r".+Vault connection info:\s(.+)$").map_err(|err| {
         format!(
-            "Failed to run '{}' with args '{:?}': {}",
-            path_str, args, err
+            "Failed to obtain the contact info of the genesis vault: {}",
+            err
+        )
+    })?;
+    let file_content = fs::read_to_string(log_path).map_err(|err| {
+        format!(
+            "Failed to obtain the contact info of the genesis vault: {}",
+            err
         )
     })?;
 
-    if output.status.success() {
-        io::stdout()
-            .write_all(&output.stdout)
-            .map_err(|err| format!("Failed to output stdout: {}", err))?;
-        Ok(())
-    } else {
-        Err(format!(
-            "Failed when running '{}' with args '{:?}':\n{}",
-            path_str,
-            args,
-            String::from_utf8_lossy(&output.stderr)
-        ))
-    }*/
-    Ok(())
+    for (_, line) in file_content.lines().enumerate() {
+        if let Some(contact_info) = &regex_query.captures(&line) {
+            return Ok(format!("[{}]", contact_info[1].to_string()));
+        }
+    }
+
+    Err("Failed to find the contact info of the genesis vault".to_string())
 }
