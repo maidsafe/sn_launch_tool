@@ -51,7 +51,7 @@ struct CmdArgs {
     #[structopt(short = "n", long, default_value = "8")]
     num_vaults: u8,
 
-    /// Vebosity level for vaults logs
+    /// Vebosity level for vaults logs (default: INFO)
     #[structopt(short = "y", long, parse(from_occurrences))]
     vaults_verbosity: u8,
 }
@@ -85,13 +85,10 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
 
     let mut common_args: Vec<&str> = vec![];
 
-    let mut verbosity = String::from("-");
-    if args.vaults_verbosity > 0 {
-        for _ in 0..args.vaults_verbosity {
-            verbosity.push('v');
-        }
-        common_args.push(&verbosity);
-    }
+    // We need a minimum of INFO level for vaults verbosity,
+    // since the genesis vault logs the contact info at INFO level
+    let verbosity = format!("-{}", "v".repeat(2 + args.vaults_verbosity as usize));
+    common_args.push(&verbosity);
 
     // Construct genesis vault's command arguments
     let genesis_vault_dir = &args.vaults_dir.join("safe-vault-genesis");
