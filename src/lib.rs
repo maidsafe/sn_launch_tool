@@ -40,7 +40,7 @@ struct CmdArgs {
     vault_path: Option<PathBuf>,
 
     /// Interval in seconds between launching each of the vaults
-    #[structopt(short = "i", long, default_value = "5")]
+    #[structopt(short = "i", long, default_value = "1")]
     interval: u64,
 
     /// Path where the output directories for all the vaults are written
