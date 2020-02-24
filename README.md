@@ -14,7 +14,7 @@ The following is an example of how to perform this on Linux or Mac:
 ```shell
 $ mkdir ~/my-local-network
 $ cd ~/my-local-network
-$ wget https://github.com/maidsafe/safe_vault/releases/download/0.21.0/safe_vault-0.21.0-x86_64-unknown-linux-musl.tar.gz
+$ curl -O https://github.com/maidsafe/safe_vault/releases/download/0.21.0/safe_vault-0.21.0-x86_64-unknown-linux-musl.tar.gz
 $ tar -xzvf safe_vault-0.21.0-x86_64-unknown-linux-musl.tar.gz
 ```
 
