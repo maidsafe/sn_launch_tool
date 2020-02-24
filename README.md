@@ -6,7 +6,7 @@ A cross platform tool to easily launch a SAFE Network test section from home
 A local SAFE network is bootstrapped by running several [SAFE vaults](https://github.com/maidsafe/safe_vault) which automatically interconnect forming a network.
 
 In order to run your own local network you'd need to follow these steps:
-- Download latest release from [safe_vault releases](https://github.com/maidsafe/safe_vault/releases/tag/0.20.1)
+- Download latest release from [safe_vault releases](https://github.com/maidsafe/safe_vault/releases/latest/)
 - Untar/unzip the downloaded file into a directory of your choice
 - Execute this tool specifying the path of the `safe_vault` executable
 
@@ -39,9 +39,9 @@ Launching vault #8...
 Done!
 ```
 
-Once the local network is running, the connection configuration file will be already in the correct place for your applications to connect to this network, so you can simply any application from this moment on to connect to your local network. Note that depending on the application, you may need to restart it so it uses the new connection information for your local network.
+Once the local network is running, the connection configuration file will be already in the correct place for your applications to connect to this network, so you can simply run any application from this moment on to connect to your local network. Note that depending on the application, you may need to restart it so it uses the new connection information for your local network.
 
-In order to shutdown a running local network, all processes instances of safe_vault must be killed, e.f. on Linux or Mac you can use the `killall` command:
+In order to shutdown a running local network, all processes instances of safe_vault must be killed, e.g. on Linux or Mac you can use the `killall` command:
 ```shell
 $ killall safe_vault
 ```
@@ -61,13 +61,13 @@ FLAGS:
             Prints help information
 
     -y, --vaults-verbosity    
-            Vebosity level for vaults logs (default: INFO)
+            Verbosity level for vaults logs (default: INFO)
 
     -V, --version             
             Prints version information
 
     -v, --verbosity           
-            Vebosity level for this tool
+            Verbosity level for this tool
 
 
 OPTIONS:
