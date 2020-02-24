@@ -31,7 +31,7 @@ const SAFE_VAULT_EXECUTABLE: &str = "safe_vault.exe";
 #[derive(StructOpt, Debug)]
 #[structopt(name = "safe-nlt")]
 struct CmdArgs {
-    /// Vebosity level for this tool
+    /// Verbosity level for this tool
     #[structopt(short = "v", long, parse(from_occurrences))]
     verbosity: u8,
 
@@ -51,7 +51,7 @@ struct CmdArgs {
     #[structopt(short = "n", long, default_value = "8")]
     num_vaults: u8,
 
-    /// Vebosity level for vaults logs (default: INFO)
+    /// Verbosity level for vaults logs (default: INFO)
     #[structopt(short = "y", long, parse(from_occurrences))]
     vaults_verbosity: u8,
 }
