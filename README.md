@@ -90,6 +90,8 @@ This SAFE Network tool is dual-licensed under the Modified BSD ([LICENSE-BSD](LI
 
 ## Contributing
 
-As an open source project, we're excited to accept contributions to the code from outside of MaidSafe and are striving to make that as easy and clean as possible.
+Want to contribute? Great :tada:
 
-With enforced linting and commit style clearly laid out, as well as a list of more accessible issues for any project, labelled with `Help Wanted`.
+There are many ways to give back to the project, whether it be writing new code, fixing bugs, or just reporting errors. All forms of contributions are encouraged!
+
+For instructions on how to contribute, see our [Guide to contributing](https://github.com/maidsafe/QA/blob/master/CONTRIBUTING.md).
