@@ -87,10 +87,9 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
 
     // We need a minimum of INFO level for vaults verbosity,
     // since the genesis vault logs the contact info at INFO level
-    let verbosity = format!("-{}", "v".repeat(2 + args.vaults_verbosity as usize));
     common_args.push(&verbosity);
 
-    // Construct genesis vault's command arguments
+    // Construct genesis vault's command argumen]ts
     let genesis_vault_dir = &args.vaults_dir.join("safe-vault-genesis");
     let genesis_vault_dir_str = genesis_vault_dir.display().to_string();
     let genesis_vault_args = build_vault_args(
@@ -192,7 +191,7 @@ fn run_vault_cmd(vault_path: &PathBuf, args: &[&str], verbosity: u8) -> Result<(
     let _child = Command::new(&path_str)
         .args(args)
         .stdout(Stdio::null())
-        .stderr(Stdio::null())
+        .stderr(Stdio::inherit())
         .spawn()
         .map_err(|err| {
             format!(
