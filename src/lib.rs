@@ -192,7 +192,7 @@ fn run_vault_cmd(vault_path: &PathBuf, args: &[&str], verbosity: u8) -> Result<(
     let _child = Command::new(&path_str)
         .args(args)
         .stdout(Stdio::null())
-        .stderr(Stdio::null())
+        .stderr(Stdio::inherit())
         .spawn()
         .map_err(|err| {
             format!(
