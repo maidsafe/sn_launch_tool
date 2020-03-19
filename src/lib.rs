@@ -54,6 +54,10 @@ struct CmdArgs {
     /// Verbosity level for vaults logs (default: INFO)
     #[structopt(short = "y", long, parse(from_occurrences))]
     vaults_verbosity: u8,
+
+    /// IP used to launch the vaults with.
+    #[structopt(long = "ip")]
+    ip: Option<String>,
 }
 
 pub fn run() -> Result<(), String> {
@@ -89,6 +93,11 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
     // since the genesis vault logs the contact info at INFO level
     let verbosity = format!("-{}", "v".repeat(2 + args.vaults_verbosity as usize));
     common_args.push(&verbosity);
+    
+    if let Some(ref ip) = args.ip {
+        common_args.push("--ip");
+        common_args.push(ip);
+    }
 
     // Construct genesis vault's command arguments
     let genesis_vault_dir = &args.vaults_dir.join("safe-vault-genesis");
