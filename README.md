@@ -74,12 +74,17 @@ OPTIONS:
     -i, --interval <interval>        
             Interval in seconds between launching each of the vaults [default: 5]
 
+        --ip <ip>
+            IP used to launch the vaults with
+
     -n, --num-vaults <num-vaults>    
             Number of vaults to spawn with the first one being the genesis. This number should be greater than 0
             [default: 8]
+
     -p, --vault-path <vault-path>    
             Path where to locate safe_vault/safe_vault.exe binary. The SAFE_VAULT_PATH env var can be also used to set
             the path [env: SAFE_VAULT_PATH=]
+
     -d, --vaults-dir <vaults-dir>    
             Path where the output directories for all the vaults are written [default: ./vaults]
 ```
