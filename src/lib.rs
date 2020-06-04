@@ -58,6 +58,10 @@ struct CmdArgs {
     /// IP used to launch the vaults with.
     #[structopt(long = "ip")]
     ip: Option<String>,
+
+    /// Run the section locally.
+    #[structopt(long = "local")]
+    is_local: bool,
 }
 
 pub fn run() -> Result<(), String> {
@@ -93,10 +97,14 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
     // since the genesis vault logs the contact info at INFO level
     let verbosity = format!("-{}", "v".repeat(2 + args.vaults_verbosity as usize));
     common_args.push(&verbosity);
-    
+
     if let Some(ref ip) = args.ip {
         common_args.push("--ip");
         common_args.push(ip);
+    }
+
+    if args.is_local {
+        common_args.push("--local");
     }
 
     // Construct genesis vault's command arguments
