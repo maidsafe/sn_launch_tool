@@ -64,8 +64,96 @@ struct CmdArgs {
     is_local: bool,
 }
 
+/// Run a SAFE vault to join a network
+#[derive(StructOpt, Debug)]
+#[structopt(name = "safe-nlt-join")]
+struct JoinCmdArgs {
+    /// Verbosity level for this tool
+    #[structopt(short = "v", long, parse(from_occurrences))]
+    verbosity: u8,
+
+    /// Path where to locate safe_vault/safe_vault.exe binary. The SAFE_VAULT_PATH env var can be also used to set the path
+    #[structopt(short = "p", long, env = "SAFE_VAULT_PATH")]
+    vault_path: Option<PathBuf>,
+
+    /// Path where to store the data for the running safe_vault
+    #[structopt(short = "f", long, env = "SAFE_VAULT_DATA_PATH")]
+    data_dir: Option<PathBuf>,
+
+    /// Path where the output directories for all the vaults are written
+    #[structopt(short = "d", long, default_value = "./vaults")]
+    vaults_dir: PathBuf,
+
+    /// Verbosity level for vaults logs (default: INFO)
+    #[structopt(short = "y", long, parse(from_occurrences))]
+    vaults_verbosity: u8,
+
+    /// IP used to launch the vaults with.
+    #[structopt(long = "ip")]
+    ip: Option<String>,
+}
+
 pub fn run() -> Result<(), String> {
     run_with(None)
+}
+
+pub fn join() -> Result<(), String> {
+    join_with(None)
+}
+
+pub fn join_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
+    // Let's first get all the arguments passed in, either as function's args, or CLI args
+    let args = match cmd_args {
+        None => JoinCmdArgs::from_args(),
+        Some(cmd_args) => JoinCmdArgs::from_iter_safe(cmd_args).map_err(|err| err.to_string())?,
+    };
+
+    let vault_bin_path = get_vault_bin_path(args.vault_path)?;
+    let msg = format!(
+        "Launching with vault executable from: {}",
+        vault_bin_path.display()
+    );
+    if args.verbosity > 0 {
+        println!("{}", msg);
+    }
+    debug!("{}", msg);
+
+    let mut common_args: Vec<&str> = vec![];
+
+    // We need a minimum of INFO level for vaults verbosity,
+    // since the genesis vault logs the contact info at INFO level
+    let verbosity = format!("-{}", "v".repeat(2 + args.vaults_verbosity as usize));
+    common_args.push(&verbosity);
+
+    if let Some(ref data_dir) = args.data_dir {
+        common_args.push("--data-dir");
+        common_args.push(data_dir.to_str().unwrap());
+    };
+
+    if let Some(ref ip) = args.ip {
+        let msg = format!("Network hardcoded contact: {}", ip);
+        if args.verbosity > 0 {
+            println!("{}", msg);
+        }
+        debug!("{}", msg);
+
+        // Construct current vault's command arguments
+        let vault_dir = &args
+            .vaults_dir
+            .join("safe_vault_logs")
+            .display()
+            .to_string();
+
+        let current_vault_args = build_vault_args(common_args.clone(), &vault_dir, Some(&ip));
+
+        let msg = "Launching vault...";
+        if args.verbosity > 0 {
+            println!("{}", msg);
+        }
+        debug!("{}", msg);
+        run_vault_cmd(&vault_bin_path, &current_vault_args, args.verbosity)?;
+    };
+    Ok(())
 }
 
 pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
