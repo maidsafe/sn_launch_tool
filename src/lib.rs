@@ -131,7 +131,8 @@ pub fn join_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
     };
 
     if let Some(ref ip) = args.ip {
-        let msg = format!("Network hardcoded contact: {}", ip);
+        let genesis_contact_info = format!("[\"{}\"]", ip);
+        let msg = format!("Node started with hardcoded contact: {}", ip);
         if args.verbosity > 0 {
             println!("{}", msg);
         }
@@ -144,7 +145,8 @@ pub fn join_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
             .display()
             .to_string();
 
-        let current_vault_args = build_vault_args(common_args.clone(), &vault_dir, Some(&ip));
+        let current_vault_args =
+            build_vault_args(common_args.clone(), &vault_dir, Some(&genesis_contact_info));
 
         let msg = "Launching vault...";
         if args.verbosity > 0 {
