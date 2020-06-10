@@ -152,6 +152,14 @@ pub fn join_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
         }
         debug!("{}", msg);
         run_vault_cmd(&vault_bin_path, &current_vault_args, args.verbosity)?;
+
+        let msg = format!(
+            "Vault logs are being stored at: {}/safe_vault.log",
+            vault_dir
+        );
+        if args.verbosity > 0 {
+            println!("{}", msg);
+        }
     } else {
         let msg = "Failed to start a vault. No hardcoded contacts provided.";
         if args.verbosity > 0 {
