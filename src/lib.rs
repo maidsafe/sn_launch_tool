@@ -76,10 +76,6 @@ struct JoinCmdArgs {
     #[structopt(short = "p", long, env = "SAFE_VAULT_PATH")]
     vault_path: Option<PathBuf>,
 
-    /// Path where to store the data for the running safe_vault
-    #[structopt(short = "f", long, env = "SAFE_VAULT_DATA_PATH")]
-    data_dir: Option<PathBuf>,
-
     /// Path where the output directories for all the vaults are written
     #[structopt(short = "d", long, default_value = "./vaults")]
     vaults_dir: PathBuf,
@@ -89,8 +85,8 @@ struct JoinCmdArgs {
     vaults_verbosity: u8,
 
     /// IP used to launch the vaults with.
-    #[structopt(long = "ip")]
-    ip: Option<String>,
+    #[structopt(short = "h", long)]
+    hard_coded_contacts: Option<String>,
 }
 
 pub fn run() -> Result<(), String> {
@@ -125,14 +121,16 @@ pub fn join_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
     let verbosity = format!("-{}", "v".repeat(2 + args.vaults_verbosity as usize));
     common_args.push(&verbosity);
 
-    if let Some(ref data_dir) = args.data_dir {
-        common_args.push("--data-dir");
-        common_args.push(data_dir.to_str().unwrap());
-    };
-
-    if let Some(ref ip) = args.ip {
-        let genesis_contact_info = format!("[\"{}\"]", ip);
-        let msg = format!("Node started with hardcoded contact: {}", ip);
+    if let Some(ref hccs) = args.hard_coded_contacts {
+        let mut hard_coded_contacts: Vec<String> = Vec::new();
+        for hcc in hccs.split(',') {
+            hard_coded_contacts.push(format!("\"{}\"", hcc));
+        }
+        let genesis_contact_info = format!("[{}]", hard_coded_contacts.join(","));
+        let msg = format!(
+            "Node started with hardcoded contact(s): {}",
+            genesis_contact_info
+        );
         if args.verbosity > 0 {
             println!("{}", msg);
         }
@@ -141,7 +139,7 @@ pub fn join_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
         // Construct current vault's command arguments
         let vault_dir = &args
             .vaults_dir
-            .join("safe_vault_logs")
+            .join("shared_safe_vault")
             .display()
             .to_string();
 
@@ -154,7 +152,13 @@ pub fn join_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
         }
         debug!("{}", msg);
         run_vault_cmd(&vault_bin_path, &current_vault_args, args.verbosity)?;
-    };
+    } else {
+        let msg = "Failed to start a vault. No hardcoded contacts provided.";
+        if args.verbosity > 0 {
+            println!("{}", msg);
+        }
+        debug!("{}", msg);
+    }
     Ok(())
 }
 
