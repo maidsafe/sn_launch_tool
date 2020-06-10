@@ -137,11 +137,7 @@ pub fn join_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
         debug!("{}", msg);
 
         // Construct current vault's command arguments
-        let vault_dir = &args
-            .vaults_dir
-            .join("shared_safe_vault")
-            .display()
-            .to_string();
+        let vault_dir = &args.vaults_dir.display().to_string();
 
         let current_vault_args =
             build_vault_args(common_args.clone(), &vault_dir, Some(&genesis_contact_info));
