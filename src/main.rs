@@ -7,7 +7,6 @@
 // specific language governing permissions and limitations relating to use of the SAFE Network
 // Software.
 
-use env_logger;
 use log::{debug, error};
 use safe_nlt::run;
 pub use safe_nlt::run_with;
