@@ -8,8 +8,8 @@
 // Software.
 
 use log::{debug, error};
-use safe_nlt::run;
-pub use safe_nlt::run_with;
+use sn_launch_tool::run;
+pub use sn_launch_tool::run_with;
 use std::process;
 
 fn main() {
@@ -17,7 +17,7 @@ fn main() {
     debug!("Launching SAFE vaults...");
 
     if let Err(e) = run() {
-        error!("safe-nlt error: {}", e);
+        error!("sn_launch_tool error: {}", e);
         process::exit(1);
     }
 }

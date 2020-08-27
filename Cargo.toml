@@ -1,10 +1,10 @@
 [package]
-name = "safe-nlt"
+name = "sn_launch_tool"
 version = "0.0.1"
 description = "SAFE API"
 authors = ["Gabriel Viganotti <gabrielviganotti@gmail.com>"]
 license = "MIT OR BSD-3-Clause"
-repository = "https://github.com/maidsafe/safe-network-launch-tool.git"
+repository = "https://github.com/maidsafe/sn_launch_tool.git"
 edition = "2018"
 
 [dependencies]

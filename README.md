@@ -1,4 +1,4 @@
-# safe-network-launch-tool
+# SAFE Network Launch Tool
 A cross platform tool to easily launch a SAFE Network test section from home
 
 ## Installing the SAFE Vault
@@ -22,8 +22,8 @@ $ tar -xzvf safe_vault-0.21.0-x86_64-unknown-linux-musl.tar.gz
 
 At current state of the [SAFE project](), a single-section SAFE network can be launched locally in our system. If the SAFE vault binary was downloaded and extracted at `~/my-local-network/` as described above, we can now launch the network using this tool following these steps:
 ```shell
-$ git clone https://github.com/maidsafe/safe-network-launch-tool
-$ cd safe-network-launch-tool
+$ git clone https://github.com/maidsafe/sn_launch_tool
+$ cd sn_launch_tool
 $ cargo run -- -p ~/my-local-network/safe_vault -v
 Launching with vault executable from: ~/my-local-network/safe_vault
 Network size: 8 vaults
@@ -48,13 +48,13 @@ $ killall safe_vault
 
 This tool allows you to change default values to customise part of the process, you can use the `--help` flag to get a complete list of the flags and options it supports:
 ```shell
-safe-nlt 0.0.1
+sn_launch_tool 0.0.1
 Tool to launch SAFE vaults to form a local single-section network
 
 Currently, this tool runs vaults on localhost (since that's the default if no IP address is given to the vaults)
 
 USAGE:
-    safe-nlt [FLAGS] [OPTIONS]
+    sn_launch_tool [FLAGS] [OPTIONS]
 
 FLAGS:
     -h, --help                

@@ -29,7 +29,7 @@ const SAFE_VAULT_EXECUTABLE: &str = "safe_vault.exe";
 ///
 /// Currently, this tool runs vaults on localhost (since that's the default if no IP address is given to the vaults)
 #[derive(StructOpt, Debug)]
-#[structopt(name = "safe-nlt")]
+#[structopt(name = "sn_launch_tool")]
 struct CmdArgs {
     /// Verbosity level for this tool
     #[structopt(short = "v", long, parse(from_occurrences))]
@@ -66,7 +66,7 @@ struct CmdArgs {
 
 /// Run a SAFE vault to join a network
 #[derive(StructOpt, Debug)]
-#[structopt(name = "safe-nlt-join")]
+#[structopt(name = "sn_launch_tool-join")]
 struct JoinCmdArgs {
     /// Verbosity level for this tool
     #[structopt(short = "v", long, parse(from_occurrences))]
