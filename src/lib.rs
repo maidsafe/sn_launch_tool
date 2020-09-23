@@ -20,14 +20,14 @@ use std::{
 use structopt::StructOpt;
 
 #[cfg(not(target_os = "windows"))]
-const SAFE_VAULT_EXECUTABLE: &str = "safe_vault";
+const SN_NODE_EXECUTABLE: &str = "sn_node";
 
 #[cfg(target_os = "windows")]
-const SAFE_VAULT_EXECUTABLE: &str = "safe_vault.exe";
+const SN_NODE_EXECUTABLE: &str = "sn_node.exe";
 
-/// Tool to launch SAFE vaults to form a local single-section network
+/// Tool to launch Safe nodes to form a local single-section network
 ///
-/// Currently, this tool runs vaults on localhost (since that's the default if no IP address is given to the vaults)
+/// Currently, this tool runs nodes on localhost (since that's the default if no IP address is given to the nodes)
 #[derive(StructOpt, Debug)]
 #[structopt(name = "sn_launch_tool")]
 struct CmdArgs {
@@ -35,27 +35,27 @@ struct CmdArgs {
     #[structopt(short = "v", long, parse(from_occurrences))]
     verbosity: u8,
 
-    /// Path where to locate safe_vault/safe_vault.exe binary. The SAFE_VAULT_PATH env var can be also used to set the path
-    #[structopt(short = "p", long, env = "SAFE_VAULT_PATH")]
-    vault_path: Option<PathBuf>,
+    /// Path where to locate sn_node/sn_node.exe binary. The SN_NODE_PATH env var can be also used to set the path
+    #[structopt(short = "p", long, env = "SN_NODE_PATH")]
+    node_path: Option<PathBuf>,
 
-    /// Interval in seconds between launching each of the vaults
+    /// Interval in seconds between launching each of the nodes
     #[structopt(short = "i", long, default_value = "1")]
     interval: u64,
 
-    /// Path where the output directories for all the vaults are written
-    #[structopt(short = "d", long, default_value = "./vaults")]
-    vaults_dir: PathBuf,
+    /// Path where the output directories for all the notes are written
+    #[structopt(short = "d", long, default_value = "./nodes")]
+    nodes_dir: PathBuf,
 
-    /// Number of vaults to spawn with the first one being the genesis. This number should be greater than 0.
+    /// Number of nodes to spawn with the first one being the genesis. This number should be greater than 0.
     #[structopt(short = "n", long, default_value = "8")]
-    num_vaults: u8,
+    num_nodes: u8,
 
-    /// Verbosity level for vaults logs (default: INFO)
+    /// Verbosity level for nodes logs (default: INFO)
     #[structopt(short = "y", long, parse(from_occurrences))]
-    vaults_verbosity: u8,
+    nodes_verbosity: u8,
 
-    /// IP used to launch the vaults with.
+    /// IP used to launch the nodes with.
     #[structopt(long = "ip")]
     ip: Option<String>,
 
@@ -64,7 +64,7 @@ struct CmdArgs {
     is_local: bool,
 }
 
-/// Run a SAFE vault to join a network
+/// Run a Safe node to join a network
 #[derive(StructOpt, Debug)]
 #[structopt(name = "sn_launch_tool-join")]
 struct JoinCmdArgs {
@@ -72,19 +72,19 @@ struct JoinCmdArgs {
     #[structopt(short = "v", long, parse(from_occurrences))]
     verbosity: u8,
 
-    /// Path where to locate safe_vault/safe_vault.exe binary. The SAFE_VAULT_PATH env var can be also used to set the path
-    #[structopt(short = "p", long, env = "SAFE_VAULT_PATH")]
-    vault_path: Option<PathBuf>,
+    /// Path where to locate sn_node/sn_node.exe binary. The SN_NODE_PATH env var can be also used to set the path
+    #[structopt(short = "p", long, env = "SN_NODE_PATH")]
+    node_path: Option<PathBuf>,
 
-    /// Path where the output directories for all the vaults are written
-    #[structopt(short = "d", long, default_value = "./vaults")]
-    vaults_dir: PathBuf,
+    /// Path where the output directories for all the nodes are written
+    #[structopt(short = "d", long, default_value = "./nodes")]
+    nodes_dir: PathBuf,
 
-    /// Verbosity level for vaults logs (default: INFO)
+    /// Verbosity level for nodes logs (default: INFO)
     #[structopt(short = "y", long, parse(from_occurrences))]
-    vaults_verbosity: u8,
+    nodes_verbosity: u8,
 
-    /// IP used to launch the vaults with.
+    /// IP used to launch the nodes with.
     #[structopt(short = "h", long)]
     hard_coded_contacts: Option<String>,
 }
@@ -104,10 +104,10 @@ pub fn join_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
         Some(cmd_args) => JoinCmdArgs::from_iter_safe(cmd_args).map_err(|err| err.to_string())?,
     };
 
-    let vault_bin_path = get_vault_bin_path(args.vault_path)?;
+    let node_bin_path = get_node_bin_path(args.node_path)?;
     let msg = format!(
-        "Launching with vault executable from: {}",
-        vault_bin_path.display()
+        "Launching with node executable from: {}",
+        node_bin_path.display()
     );
     if args.verbosity > 0 {
         println!("{}", msg);
@@ -116,9 +116,9 @@ pub fn join_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
 
     let mut common_args: Vec<&str> = vec![];
 
-    // We need a minimum of INFO level for vaults verbosity,
-    // since the genesis vault logs the contact info at INFO level
-    let verbosity = format!("-{}", "v".repeat(2 + args.vaults_verbosity as usize));
+    // We need a minimum of INFO level for nodes verbosity,
+    // since the genesis node logs the contact info at INFO level
+    let verbosity = format!("-{}", "v".repeat(2 + args.nodes_verbosity as usize));
     common_args.push(&verbosity);
 
     if let Some(ref hccs) = args.hard_coded_contacts {
@@ -136,28 +136,25 @@ pub fn join_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
         }
         debug!("{}", msg);
 
-        // Construct current vault's command arguments
-        let vault_dir = &args.vaults_dir.display().to_string();
+        // Construct current node's command arguments
+        let node_dir = &args.nodes_dir.display().to_string();
 
-        let current_vault_args =
-            build_vault_args(common_args.clone(), &vault_dir, Some(&genesis_contact_info));
+        let current_node_args =
+            build_node_args(common_args.clone(), &node_dir, Some(&genesis_contact_info));
 
-        let msg = "Launching vault...";
+        let msg = "Launching node...";
         if args.verbosity > 0 {
             println!("{}", msg);
         }
         debug!("{}", msg);
-        run_vault_cmd(&vault_bin_path, &current_vault_args, args.verbosity)?;
+        run_node_cmd(&node_bin_path, &current_node_args, args.verbosity)?;
 
-        let msg = format!(
-            "Vault logs are being stored at: {}/safe_vault.log",
-            vault_dir
-        );
+        let msg = format!("Node logs are being stored at: {}/sn_node.log", node_dir);
         if args.verbosity > 0 {
             println!("{}", msg);
         }
     } else {
-        let msg = "Failed to start a vault. No hardcoded contacts provided.";
+        let msg = "Failed to start a node. No hardcoded contacts provided.";
         if args.verbosity > 0 {
             println!("{}", msg);
         }
@@ -173,17 +170,17 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
         Some(cmd_args) => CmdArgs::from_iter_safe(cmd_args).map_err(|err| err.to_string())?,
     };
 
-    let vault_bin_path = get_vault_bin_path(args.vault_path)?;
+    let node_bin_path = get_node_bin_path(args.node_path)?;
     let msg = format!(
-        "Launching with vault executable from: {}",
-        vault_bin_path.display()
+        "Launching with node executable from: {}",
+        node_bin_path.display()
     );
     if args.verbosity > 0 {
         println!("{}", msg);
     }
     debug!("{}", msg);
 
-    let msg = format!("Network size: {} vaults", args.num_vaults);
+    let msg = format!("Network size: {} nodes", args.num_nodes);
     if args.verbosity > 0 {
         println!("{}", msg);
     }
@@ -191,9 +188,9 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
 
     let mut common_args: Vec<&str> = vec![];
 
-    // We need a minimum of INFO level for vaults verbosity,
-    // since the genesis vault logs the contact info at INFO level
-    let verbosity = format!("-{}", "v".repeat(2 + args.vaults_verbosity as usize));
+    // We need a minimum of INFO level for nodes verbosity,
+    // since the genesis node logs the contact info at INFO level
+    let verbosity = format!("-{}", "v".repeat(2 + args.nodes_verbosity as usize));
     common_args.push(&verbosity);
 
     if let Some(ref ip) = args.ip {
@@ -205,53 +202,53 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
         common_args.push("--local");
     }
 
-    // Construct genesis vault's command arguments
-    let genesis_vault_dir = &args.vaults_dir.join("safe-vault-genesis");
-    let genesis_vault_dir_str = genesis_vault_dir.display().to_string();
-    let genesis_vault_args = build_vault_args(
+    // Construct genesis node's command arguments
+    let genesis_node_dir = &args.nodes_dir.join("sn-node-genesis");
+    let genesis_node_dir_str = genesis_node_dir.display().to_string();
+    let genesis_node_args = build_node_args(
         common_args.clone(),
-        &genesis_vault_dir_str,
+        &genesis_node_dir_str,
         None, /* genesis */
     );
 
-    // Let's launch genesis vault now
-    let msg = "Launching genesis vault (#1)...";
+    // Let's launch genesis node now
+    let msg = "Launching genesis node (#1)...";
     if args.verbosity > 0 {
         println!("{}", msg);
     }
     debug!("{}", msg);
-    run_vault_cmd(&vault_bin_path, &genesis_vault_args, args.verbosity)?;
+    run_node_cmd(&node_bin_path, &genesis_node_args, args.verbosity)?;
 
-    // Get port number of genesis vault to pass it as hard-coded contact to the other vaults
+    // Get port number of genesis node to pass it as hard-coded contact to the other nodes
     let interval_duration = Duration::from_secs(args.interval);
     thread::sleep(interval_duration);
-    let genesis_contact_info = grep_connection_info(&genesis_vault_dir.join("safe_vault.log"))?;
-    let msg = format!("Genesis vault contact info: {}", genesis_contact_info);
+    let genesis_contact_info = grep_connection_info(&genesis_node_dir.join("sn_node.log"))?;
+    let msg = format!("Genesis node contact info: {}", genesis_contact_info);
     if args.verbosity > 0 {
         println!("{}", msg);
     }
     debug!("{}", msg);
 
-    // We can now run the rest of the vaults
-    for i in 2..args.num_vaults + 1 {
-        // Construct current vault's command arguments
-        let vault_dir = &args
-            .vaults_dir
-            .join(&format!("safe-vault-{}", i))
+    // We can now run the rest of the nodes
+    for i in 2..args.num_nodes + 1 {
+        // Construct current node's command arguments
+        let node_dir = &args
+            .nodes_dir
+            .join(&format!("sn-node-{}", i))
             .display()
             .to_string();
 
-        let current_vault_args =
-            build_vault_args(common_args.clone(), &vault_dir, Some(&genesis_contact_info));
+        let current_node_args =
+            build_node_args(common_args.clone(), &node_dir, Some(&genesis_contact_info));
 
-        let msg = format!("Launching vault #{}...", i);
+        let msg = format!("Launching node #{}...", i);
         if args.verbosity > 0 {
             println!("{}", msg);
         }
         debug!("{}", msg);
-        run_vault_cmd(&vault_bin_path, &current_vault_args, args.verbosity)?;
+        run_node_cmd(&node_bin_path, &current_node_args, args.verbosity)?;
 
-        // We wait for a few secs before launching each new vault
+        // We wait for a few secs before launching each new node
         thread::sleep(interval_duration);
     }
 
@@ -260,8 +257,8 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
 }
 
 #[inline]
-fn get_vault_bin_path(vault_path: Option<PathBuf>) -> Result<PathBuf, String> {
-    match vault_path {
+fn get_node_bin_path(node_path: Option<PathBuf>) -> Result<PathBuf, String> {
+    match node_path {
         Some(p) => Ok(p),
         None => {
             let base_dirs =
@@ -269,16 +266,16 @@ fn get_vault_bin_path(vault_path: Option<PathBuf>) -> Result<PathBuf, String> {
 
             let mut path = PathBuf::from(base_dirs.home_dir());
             path.push(".safe");
-            path.push("vault");
-            path.push(SAFE_VAULT_EXECUTABLE);
+            path.push("node");
+            path.push(SN_NODE_EXECUTABLE);
             Ok(path)
         }
     }
 }
 
-fn build_vault_args<'a>(
+fn build_node_args<'a>(
     mut base_args: Vec<&'a str>,
-    vault_dir: &'a str,
+    node_dir: &'a str,
     contact_info: Option<&'a str>,
 ) -> Vec<&'a str> {
     if let Some(contact) = contact_info {
@@ -289,15 +286,15 @@ fn build_vault_args<'a>(
     }
 
     base_args.push("--root-dir");
-    base_args.push(vault_dir);
+    base_args.push(node_dir);
     base_args.push("--log-dir");
-    base_args.push(vault_dir);
+    base_args.push(node_dir);
 
     base_args
 }
 
-fn run_vault_cmd(vault_path: &PathBuf, args: &[&str], verbosity: u8) -> Result<(), String> {
-    let path_str = vault_path.display().to_string();
+fn run_node_cmd(node_path: &PathBuf, args: &[&str], verbosity: u8) -> Result<(), String> {
+    let path_str = node_path.display().to_string();
     let msg = format!("Running '{}' with args {:?} ...", path_str, args);
     if verbosity > 1 {
         println!("{}", msg);
@@ -320,15 +317,15 @@ fn run_vault_cmd(vault_path: &PathBuf, args: &[&str], verbosity: u8) -> Result<(
 }
 
 fn grep_connection_info(log_path: &PathBuf) -> Result<String, String> {
-    let regex_query = Regex::new(r".+Vault connection info:\s(.+)$").map_err(|err| {
+    let regex_query = Regex::new(r".+Node connection info:\s(.+)$").map_err(|err| {
         format!(
-            "Failed to obtain the contact info of the genesis vault: {}",
+            "Failed to obtain the contact info of the genesis node: {}",
             err
         )
     })?;
     let file_content = fs::read_to_string(log_path).map_err(|err| {
         format!(
-            "Failed to obtain the contact info of the genesis vault: {}",
+            "Failed to obtain the contact info of the genesis node: {}",
             err
         )
     })?;
@@ -339,5 +336,5 @@ fn grep_connection_info(log_path: &PathBuf) -> Result<String, String> {
         }
     }
 
-    Err("Failed to find the contact info of the genesis vault".to_string())
+    Err("Failed to find the contact info of the genesis node".to_string())
 }
