@@ -14,7 +14,7 @@ use std::process;
 
 fn main() {
     env_logger::init();
-    debug!("Launching SAFE vaults...");
+    debug!("Launching Safe nodes...");
 
     if let Err(e) = run() {
         error!("sn_launch_tool error: {}", e);
