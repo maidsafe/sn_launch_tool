@@ -5,7 +5,7 @@
 
 name: PR
 
-on: [pull_request, push]
+on: pull_request
 
 env:
   # Run all cargo commands with --verbose.
@@ -20,6 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      
       - name: Install Rust and required components
         uses: actions-rs/toolchain@v1
         with:
@@ -55,7 +56,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      # Install Rust and required components
+
+      # Install Rust
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
