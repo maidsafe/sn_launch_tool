@@ -7,9 +7,8 @@
 // specific language governing permissions and limitations relating to use of the SAFE Network
 // Software.
 
-use directories::BaseDirs;
+use directories::{BaseDirs, UserDirs};
 use log::debug;
-use regex::Regex;
 use std::{
     fs,
     path::PathBuf,
@@ -222,12 +221,22 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
     // Get port number of genesis node to pass it as hard-coded contact to the other nodes
     let interval_duration = Duration::from_secs(args.interval);
     thread::sleep(interval_duration);
-    let genesis_contact_info = grep_connection_info(&genesis_node_dir.join("sn_node.log"))?;
+
+    // Fetch node_conn_info from $HOME/.safe/node/node_connection_info.config.
+    let user_dir = UserDirs::new().ok_or_else(|| "Could not fetch home directory".to_string())?;
+    let node_conn_info = user_dir
+        .home_dir()
+        .join(".safe/node/node_connection_info.config");
+
+    let raw = fs::read_to_string(&node_conn_info).map_err(|e| e.to_string())?;
+    let genesis_contact_info = format!("[{}]", raw);
     let msg = format!("Genesis node contact info: {}", genesis_contact_info);
     if args.verbosity > 0 {
+        println!("Connection info directory: {:?}", node_conn_info);
         println!("{}", msg);
     }
     debug!("{}", msg);
+    debug!("Connection info directory: {:?}", node_conn_info);
 
     // We can now run the rest of the nodes
     for i in 2..args.num_nodes + 1 {
@@ -314,27 +323,4 @@ fn run_node_cmd(node_path: &PathBuf, args: &[&str], verbosity: u8) -> Result<(),
         })?;
 
     Ok(())
-}
-
-fn grep_connection_info(log_path: &PathBuf) -> Result<String, String> {
-    let regex_query = Regex::new(r".+Node connection info:\s(.+)$").map_err(|err| {
-        format!(
-            "Failed to obtain the contact info of the genesis node: {}",
-            err
-        )
-    })?;
-    let file_content = fs::read_to_string(log_path).map_err(|err| {
-        format!(
-            "Failed to obtain the contact info of the genesis node: {}",
-            err
-        )
-    })?;
-
-    for (_, line) in file_content.lines().enumerate() {
-        if let Some(contact_info) = &regex_query.captures(&line) {
-            return Ok(format!("[{}]", contact_info[1].to_string()));
-        }
-    }
-
-    Err("Failed to find the contact info of the genesis node".to_string())
 }

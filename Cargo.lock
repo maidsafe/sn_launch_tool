@@ -304,12 +304,11 @@ dependencies = [
 
 [[package]]
 name = "sn_launch_tool"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "directories",
  "env_logger",
  "log",
- "regex",
  "structopt",
 ]
 

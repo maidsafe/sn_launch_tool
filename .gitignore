@@ -23,6 +23,7 @@ build-tests/
 *~
 ~*
 *.bk
+/.idea
 *.swp
 *.sublime-*
 
