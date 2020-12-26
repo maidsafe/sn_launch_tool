@@ -161,4 +161,4 @@ jobs:
           override: true
 
       - name: Test publish
-        run: cargo publish --dry-run
+        run: cargo publish --dry-run --allow-dirty
