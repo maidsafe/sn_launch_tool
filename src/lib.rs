@@ -42,6 +42,14 @@ struct CmdArgs {
     #[structopt(short = "i", long, default_value = "1")]
     interval: u64,
 
+    /// Interval in seconds before deeming a peer to have timed out
+    #[structopt(long = "idle-timeout-msec", default_value = "5500")]
+    idle_timeout_msec: u64,
+
+    /// Interval in seconds between qp2p keep alive messages
+    #[structopt(long = "keep-alive-interval-msec", default_value = "5")]
+    keep_alive_interval_msec: u64,
+
     /// Path where the output directories for all the notes are written
     #[structopt(short = "d", long, default_value = "./nodes")]
     nodes_dir: PathBuf,
@@ -192,6 +200,14 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
     let verbosity = format!("-{}", "v".repeat(2 + args.nodes_verbosity as usize));
     common_args.push(&verbosity);
 
+    let idle = args.idle_timeout_msec.to_string();
+    let keep_alive = args.keep_alive_interval_msec.to_string();
+
+    common_args.push("--idle-timeout-msec");
+    common_args.push(&idle);
+    common_args.push("--keep-alive-interval-msec");
+    common_args.push(&keep_alive);
+
     if let Some(ref ip) = args.ip {
         common_args.push("--ip");
         common_args.push(ip);
@@ -237,6 +253,13 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
     }
     debug!("{}", msg);
     debug!("Connection info directory: {:?}", node_conn_info);
+
+    if args.verbosity > 0 {
+        println!(
+            "Common node args for launching the network: {:?}",
+            common_args
+        );
+    }
 
     // We can now run the rest of the nodes
     for i in 2..args.num_nodes + 1 {
@@ -312,6 +335,7 @@ fn run_node_cmd(node_path: &PathBuf, args: &[&str], verbosity: u8) -> Result<(),
 
     let _child = Command::new(&path_str)
         .args(args)
+        .env("RUST_LOG", "sn_node=debug")
         .stdout(Stdio::null())
         .stderr(Stdio::inherit())
         .spawn()
