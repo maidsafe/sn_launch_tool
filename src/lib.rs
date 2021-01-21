@@ -254,6 +254,13 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
     debug!("{}", msg);
     debug!("Connection info directory: {:?}", node_conn_info);
 
+    if args.verbosity > 0 {
+        println!(
+            "Common node args for launching the network: {:?}",
+            common_args
+        );
+    }
+
     // We can now run the rest of the nodes
     for i in 2..args.num_nodes + 1 {
         // Construct current node's command arguments
@@ -328,6 +335,7 @@ fn run_node_cmd(node_path: &PathBuf, args: &[&str], verbosity: u8) -> Result<(),
 
     let _child = Command::new(&path_str)
         .args(args)
+        .env("RUST_LOG", "sn_node=debug")
         .stdout(Stdio::null())
         .stderr(Stdio::inherit())
         .spawn()
