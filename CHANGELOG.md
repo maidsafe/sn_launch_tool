@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.9](https://github.com/maidsafe/sn_launch_tool/compare/v0.0.8...v0.0.9) (2021-01-21)
+
+
+### Features
+
+* improve network lag w/ node startup options ([6cecb63](https://github.com/maidsafe/sn_launch_tool/commit/6cecb63c24ef91acae8a0f22d4bb4f9b29c19539))
+* log common args on network launch ([57322b2](https://github.com/maidsafe/sn_launch_tool/commit/57322b2c4a2e91278722b3df94654b6672a871b0))
+
 ### [0.0.8](https://github.com/maidsafe/sn_launch_tool/compare/v0.0.7...v0.0.8) (2021-01-14)
 
 ### [0.0.7](https://github.com/maidsafe/sn_launch_tool/compare/v0.0.6...v0.0.7) (2020-12-26)
