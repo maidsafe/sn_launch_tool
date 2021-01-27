@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.11](https://github.com/maidsafe/sn_launch_tool/compare/v0.0.10...v0.0.11) (2021-01-27)
+
+
+### Features
+
+* allow override of RUST_LOG env var for ndoe startup ([99daa5b](https://github.com/maidsafe/sn_launch_tool/commit/99daa5b9b6af1a082da03d4678c76b8ff563d4dd))
+
 ### [0.0.10](https://github.com/maidsafe/sn_launch_tool/compare/v0.0.9...v0.0.10) (2021-01-26)
 
 ### [0.0.9](https://github.com/maidsafe/sn_launch_tool/compare/v0.0.8...v0.0.9) (2021-01-21)
