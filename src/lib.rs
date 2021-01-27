@@ -69,6 +69,10 @@ struct CmdArgs {
     /// Run the section locally.
     #[structopt(long = "local")]
     is_local: bool,
+
+    /// RUST_LOG env var value to launch the nodes with.
+    #[structopt(short = "l", long)]
+    rust_log: Option<String>,
 }
 
 /// Run a Safe node to join a network
@@ -94,6 +98,10 @@ struct JoinCmdArgs {
     /// IP used to launch the nodes with.
     #[structopt(short = "h", long)]
     hard_coded_contacts: Option<String>,
+
+    /// RUST_LOG env var value to launch the nodes with.
+    #[structopt(short = "l", long)]
+    rust_log: Option<String>,
 }
 
 pub fn run() -> Result<(), String> {
@@ -154,7 +162,12 @@ pub fn join_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
             println!("{}", msg);
         }
         debug!("{}", msg);
-        run_node_cmd(&node_bin_path, &current_node_args, args.verbosity)?;
+        run_node_cmd(
+            &node_bin_path,
+            &current_node_args,
+            args.verbosity,
+            &args.rust_log,
+        )?;
 
         let msg = format!("Node logs are being stored at: {}/sn_node.log", node_dir);
         if args.verbosity > 0 {
@@ -232,7 +245,12 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
         println!("{}", msg);
     }
     debug!("{}", msg);
-    run_node_cmd(&node_bin_path, &genesis_node_args, args.verbosity)?;
+    run_node_cmd(
+        &node_bin_path,
+        &genesis_node_args,
+        args.verbosity,
+        &args.rust_log,
+    )?;
 
     // Get port number of genesis node to pass it as hard-coded contact to the other nodes
     let interval_duration = Duration::from_secs(args.interval);
@@ -259,6 +277,17 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
             "Common node args for launching the network: {:?}",
             common_args
         );
+
+        if args.rust_log.is_some() {
+            let overriden_env = &args
+                .rust_log
+                .clone()
+                .ok_or_else(|| "No RUST_LOG override provided".to_string())?;
+            println!(
+                "RUST_LOG env var has been overridden with '{:?}'",
+                overriden_env
+            );
+        }
     }
 
     // We can now run the rest of the nodes
@@ -278,7 +307,12 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
             println!("{}", msg);
         }
         debug!("{}", msg);
-        run_node_cmd(&node_bin_path, &current_node_args, args.verbosity)?;
+        run_node_cmd(
+            &node_bin_path,
+            &current_node_args,
+            args.verbosity,
+            &args.rust_log,
+        )?;
 
         // We wait for a few secs before launching each new node
         thread::sleep(interval_duration);
@@ -325,7 +359,12 @@ fn build_node_args<'a>(
     base_args
 }
 
-fn run_node_cmd(node_path: &PathBuf, args: &[&str], verbosity: u8) -> Result<(), String> {
+fn run_node_cmd(
+    node_path: &PathBuf,
+    args: &[&str],
+    verbosity: u8,
+    rust_log: &Option<String>,
+) -> Result<(), String> {
     let path_str = node_path.display().to_string();
     let msg = format!("Running '{}' with args {:?} ...", path_str, args);
     if verbosity > 1 {
@@ -333,9 +372,12 @@ fn run_node_cmd(node_path: &PathBuf, args: &[&str], verbosity: u8) -> Result<(),
     }
     debug!("{}", msg);
 
+    let default_rust_log = "sn_node=debug".to_string();
+    let rust_log_value = rust_log.as_ref().unwrap_or(&default_rust_log);
+
     let _child = Command::new(&path_str)
         .args(args)
-        .env("RUST_LOG", "sn_node=debug")
+        .env("RUST_LOG", rust_log_value)
         .stdout(Stdio::null())
         .stderr(Stdio::inherit())
         .spawn()
