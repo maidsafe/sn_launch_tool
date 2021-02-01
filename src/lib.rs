@@ -50,7 +50,7 @@ struct CmdArgs {
     #[structopt(long = "keep-alive-interval-msec", default_value = "4000")]
     keep_alive_interval_msec: u64,
 
-    /// Path where the output directories for all the notes are written
+    /// Path where the output directories for all the nodes are written
     #[structopt(short = "d", long, default_value = "./nodes")]
     nodes_dir: PathBuf,
 
