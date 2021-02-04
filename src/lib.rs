@@ -11,6 +11,7 @@ use directories::{BaseDirs, UserDirs};
 use log::debug;
 use std::{
     fs,
+    io::{self, Write},
     path::PathBuf,
     process::{Command, Stdio},
     thread,
@@ -119,15 +120,7 @@ pub fn join_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
         Some(cmd_args) => JoinCmdArgs::from_iter_safe(cmd_args).map_err(|err| err.to_string())?,
     };
 
-    let node_bin_path = get_node_bin_path(args.node_path)?;
-    let msg = format!(
-        "Launching with node executable from: {}",
-        node_bin_path.display()
-    );
-    if args.verbosity > 0 {
-        println!("{}", msg);
-    }
-    debug!("{}", msg);
+    let node_bin_path = get_node_bin_path(args.node_path, args.verbosity)?;
 
     let mut common_args: Vec<&str> = vec![];
 
@@ -166,7 +159,7 @@ pub fn join_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
             &node_bin_path,
             &current_node_args,
             args.verbosity,
-            &args.rust_log,
+            args.rust_log.as_deref(),
         )?;
 
         let msg = format!("Node logs are being stored at: {}/sn_node.log", node_dir);
@@ -190,15 +183,7 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
         Some(cmd_args) => CmdArgs::from_iter_safe(cmd_args).map_err(|err| err.to_string())?,
     };
 
-    let node_bin_path = get_node_bin_path(args.node_path)?;
-    let msg = format!(
-        "Launching with node executable from: {}",
-        node_bin_path.display()
-    );
-    if args.verbosity > 0 {
-        println!("{}", msg);
-    }
-    debug!("{}", msg);
+    let node_bin_path = get_node_bin_path(args.node_path, args.verbosity)?;
 
     let msg = format!("Network size: {} nodes", args.num_nodes);
     if args.verbosity > 0 {
@@ -249,7 +234,7 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
         &node_bin_path,
         &genesis_node_args,
         args.verbosity,
-        &args.rust_log,
+        args.rust_log.as_deref(),
     )?;
 
     // Get port number of genesis node to pass it as hard-coded contact to the other nodes
@@ -278,15 +263,13 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
             common_args
         );
 
-        if args.rust_log.is_some() {
-            let overriden_env = &args
-                .rust_log
-                .clone()
-                .ok_or_else(|| "No RUST_LOG override provided".to_string())?;
+        if let Some(overriden_env) = &args.rust_log {
             println!(
-                "RUST_LOG env var has been overridden with '{:?}'",
+                "RUST_LOG env var has been overridden with '{}'",
                 overriden_env
             );
+        } else {
+            println!("No RUST_LOG override provided");
         }
     }
 
@@ -311,7 +294,7 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
             &node_bin_path,
             &current_node_args,
             args.verbosity,
-            &args.rust_log,
+            args.rust_log.as_deref(),
         )?;
 
         // We wait for a few secs before launching each new node
@@ -322,10 +305,9 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
     Ok(())
 }
 
-#[inline]
-fn get_node_bin_path(node_path: Option<PathBuf>) -> Result<PathBuf, String> {
-    match node_path {
-        Some(p) => Ok(p),
+fn get_node_bin_path(node_path: Option<PathBuf>, verbosity: u8) -> Result<PathBuf, String> {
+    let node_bin_path = match node_path {
+        Some(p) => p,
         None => {
             let base_dirs =
                 BaseDirs::new().ok_or_else(|| "Failed to obtain user's home path".to_string())?;
@@ -334,9 +316,38 @@ fn get_node_bin_path(node_path: Option<PathBuf>) -> Result<PathBuf, String> {
             path.push(".safe");
             path.push("node");
             path.push(SN_NODE_EXECUTABLE);
-            Ok(path)
+            path
         }
+    };
+
+    let msg = format!(
+        "Launching with node executable from: {}",
+        node_bin_path.display()
+    );
+    debug!("{}", msg);
+
+    if verbosity > 0 {
+        println!("{}", msg);
+
+        // let's print version information now
+        let output = Command::new(&node_bin_path)
+            .args(&["-V"])
+            .output()
+            .map_err(|err| {
+                format!(
+                    "Failed to run '{}' with args '-V': {}",
+                    node_bin_path.display(),
+                    err
+                )
+            })?;
+
+        print!("Version: ");
+        io::stdout()
+            .write_all(&output.stdout)
+            .map_err(|err| format!("Failed to output version information: {}", err))?;
     }
+
+    Ok(node_bin_path)
 }
 
 fn build_node_args<'a>(
@@ -363,7 +374,7 @@ fn run_node_cmd(
     node_path: &PathBuf,
     args: &[&str],
     verbosity: u8,
-    rust_log: &Option<String>,
+    rust_log: Option<&str>,
 ) -> Result<(), String> {
     let path_str = node_path.display().to_string();
     let msg = format!("Running '{}' with args {:?} ...", path_str, args);
@@ -373,7 +384,7 @@ fn run_node_cmd(
     debug!("{}", msg);
 
     let default_rust_log = "sn_node=debug".to_string();
-    let rust_log_value = rust_log.as_ref().unwrap_or(&default_rust_log);
+    let rust_log_value = rust_log.unwrap_or(&default_rust_log);
 
     let _child = Command::new(&path_str)
         .args(args)
