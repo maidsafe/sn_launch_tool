@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.15](https://github.com/maidsafe/sn_launch_tool/compare/v0.0.14...v0.0.15) (2021-02-09)
+
+
+### Features
+
+* **join:** allow to join to network with a list of addresses rather than a single one ([57ee3b0](https://github.com/maidsafe/sn_launch_tool/commit/57ee3b0979c991e336887709a555d10bb1dd2b96))
+
 ### [0.0.14](https://github.com/maidsafe/sn_launch_tool/compare/v0.0.13...v0.0.14) (2021-02-04)
 
 
