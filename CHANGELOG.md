@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.16](https://github.com/maidsafe/sn_launch_tool/compare/v0.0.15...v0.0.16) (2021-02-18)
+
+
+### Bug Fixes
+
+* set rust_log correctly ([68f64e0](https://github.com/maidsafe/sn_launch_tool/commit/68f64e097016dc06e3603141d68b14d39470d2fe))
+
 ### [0.0.15](https://github.com/maidsafe/sn_launch_tool/compare/v0.0.14...v0.0.15) (2021-02-09)
 
 
