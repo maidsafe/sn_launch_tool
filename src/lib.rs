@@ -11,6 +11,7 @@ use directories::{BaseDirs, UserDirs};
 use log::debug;
 use std::{
     collections::HashSet,
+    env,
     fs::File,
     io::{self, BufReader, Write},
     net::SocketAddr,
@@ -29,6 +30,8 @@ const SN_NODE_EXECUTABLE: &str = "sn_node.exe";
 
 // Relative path from $HOME where to read the genesis node connection information from
 const GENESIS_CONN_INFO_FILEPATH: &str = ".safe/node/node_connection_info.config";
+
+const DEFAULT_RUST_LOG: &str = "sn_node=debug";
 
 /// Tool to launch Safe nodes to form a local single-section network
 ///
@@ -156,6 +159,8 @@ pub fn join_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
         )
     })?;
 
+    let rust_log = get_rust_log(args.rust_log);
+
     let msg = format!("Node to be started with contact(s): {}", conn_info_str);
     if args.verbosity > 0 {
         println!("{}", msg);
@@ -172,12 +177,7 @@ pub fn join_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
         println!("{}", msg);
     }
     debug!("{}", msg);
-    run_node_cmd(
-        &node_bin_path,
-        &current_node_args,
-        args.verbosity,
-        args.rust_log.as_deref(),
-    )?;
+    run_node_cmd(&node_bin_path, &current_node_args, args.verbosity, rust_log)?;
 
     let msg = format!("Node logs are being stored at: {}/sn_node.log", node_dir);
     if args.verbosity > 0 {
@@ -226,6 +226,8 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
         common_args.push("--local");
     }
 
+    let rust_log = get_rust_log(args.rust_log);
+
     // Construct genesis node's command arguments
     let genesis_node_dir = &args.nodes_dir.join("sn-node-genesis");
     let genesis_node_dir_str = genesis_node_dir.display().to_string();
@@ -245,7 +247,7 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
         &node_bin_path,
         &genesis_node_args,
         args.verbosity,
-        args.rust_log.as_deref(),
+        rust_log.clone(),
     )?;
 
     // Get port number of genesis node to pass it as hard-coded contact to the other nodes
@@ -260,15 +262,6 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
             "Common node args for launching the network: {:?}",
             common_args
         );
-
-        if let Some(overriden_env) = &args.rust_log {
-            println!(
-                "RUST_LOG env var has been overridden with '{}'",
-                overriden_env
-            );
-        } else {
-            println!("No RUST_LOG override provided");
-        }
     }
 
     // We can now run the rest of the nodes
@@ -292,7 +285,7 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
             &node_bin_path,
             &current_node_args,
             args.verbosity,
-            args.rust_log.as_deref(),
+            rust_log.clone(),
         )?;
 
         // We wait for a few secs before launching each new node
@@ -372,7 +365,7 @@ fn run_node_cmd(
     node_path: &PathBuf,
     args: &[&str],
     verbosity: u8,
-    rust_log: Option<&str>,
+    rust_log: String,
 ) -> Result<(), String> {
     let path_str = node_path.display().to_string();
     let msg = format!("Running '{}' with args {:?} ...", path_str, args);
@@ -381,12 +374,9 @@ fn run_node_cmd(
     }
     debug!("{}", msg);
 
-    let default_rust_log = "sn_node=debug".to_string();
-    let rust_log_value = rust_log.unwrap_or(&default_rust_log);
-
     let _child = Command::new(&path_str)
         .args(args)
-        .env("RUST_LOG", rust_log_value)
+        .env("RUST_LOG", rust_log)
         .stdout(Stdio::null())
         .stderr(Stdio::inherit())
         .spawn()
@@ -439,4 +429,16 @@ fn read_genesis_conn_info(verbosity: u8) -> Result<String, String> {
     debug!("Connection info directory: {}", conn_info_path.display());
 
     Ok(conn_info_str)
+}
+
+fn get_rust_log(rust_log_from_args: Option<String>) -> String {
+    let rust_log = match rust_log_from_args {
+        Some(rust_log_flag) => rust_log_flag,
+        None => match env::var("RUST_LOG") {
+            Ok(rust_log_env) => rust_log_env,
+            Err(_) => DEFAULT_RUST_LOG.to_string(),
+        },
+    };
+    println!("Using RUST_LOG '{}'", rust_log);
+    rust_log
 }
