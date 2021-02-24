@@ -218,7 +218,7 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
     common_args.push(&keep_alive);
 
     if let Some(ref ip) = args.ip {
-        common_args.push("--ip");
+        common_args.push("--local-ip");
         common_args.push(ip);
     }
 

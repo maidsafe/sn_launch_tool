@@ -8,8 +8,8 @@ repository = "https://github.com/maidsafe/sn_launch_tool.git"
 edition = "2018"
 
 [dependencies]
-directories = "2.0.2"
-env_logger = "~0.7.1"
-log = "~0.4.8"
+directories = "3.0.1"
+env_logger = "~0.8.3"
+log = "~0.4.14"
 serde_json = "1.0.62"
-structopt = "~0.3.9"
+structopt = "~0.3.21"
