@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.0.17](https://github.com/maidsafe/sn_launch_tool/compare/v0.0.16...v0.0.17) (2021-02-25)
+
+
+### Bug Fixes
+
+* **ip:** changes to support latest version of sn_node which renamed --ip arg to --local-ip ([5d7a000](https://github.com/maidsafe/sn_launch_tool/commit/5d7a000193f980e52b765b6c8106bb3436d2ab69))
+
 ### [0.0.16](https://github.com/maidsafe/sn_launch_tool/compare/v0.0.15...v0.0.16) (2021-02-18)
 
 
