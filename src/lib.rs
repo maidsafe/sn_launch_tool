@@ -1,4 +1,4 @@
-// Copyright 2020 MaidSafe.net limited.
+// Copyright 2021 MaidSafe.net limited.
 //
 // This SAFE Network Software is licensed to you under the MIT license <LICENSE-MIT
 // http://opensource.org/licenses/MIT> or the Modified BSD license <LICENSE-BSD
@@ -9,12 +9,11 @@
 
 use directories::{BaseDirs, UserDirs};
 use log::debug;
+use rand::Rng;
 use std::{
-    collections::HashSet,
-    env,
-    fs::File,
-    io::{self, BufReader, Write},
-    net::SocketAddr,
+    env, fs,
+    io::{self, Write},
+    net::{IpAddr, Ipv4Addr, SocketAddr},
     path::PathBuf,
     process::{Command, Stdio},
     thread,
@@ -28,8 +27,11 @@ const SN_NODE_EXECUTABLE: &str = "sn_node";
 #[cfg(target_os = "windows")]
 const SN_NODE_EXECUTABLE: &str = "sn_node.exe";
 
-// Relative path from $HOME where to read the genesis node connection information from
-const GENESIS_CONN_INFO_FILEPATH: &str = ".safe/node/node_connection_info.config";
+// // Relative path from $HOME where to read the genesis node connection information from
+// const GENESIS_CONN_INFO_FILEPATH: &str = ".safe/node/node_connection_info.config";
+
+// Relative path from $HOME where to read the connection information from
+const BOOTSTRAP_CONN_INFO_PATH: &str = ".safe/node/bootstrap";
 
 const DEFAULT_RUST_LOG: &str = "sn_node=debug";
 
@@ -65,7 +67,7 @@ struct CmdArgs {
 
     /// Number of nodes to spawn with the first one being the genesis. This number should be greater than 0.
     #[structopt(short = "n", long, default_value = "8")]
-    num_nodes: u8,
+    num_nodes: u16,
 
     /// Verbosity level for nodes logs (default: INFO)
     #[structopt(short = "y", long, parse(from_occurrences))]
@@ -251,11 +253,8 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
     )?;
 
     // Get port number of genesis node to pass it as hard-coded contact to the other nodes
-    let interval_duration = Duration::from_secs(args.interval);
-    thread::sleep(interval_duration);
-
-    // Fetch node_conn_info from $HOME/.safe/node/node_connection_info.config.
-    let genesis_contact_info = read_genesis_conn_info(args.verbosity)?;
+    let interval_duration = args.interval;
+    thread::sleep(Duration::from_secs(interval_duration));
 
     if args.verbosity > 0 {
         println!(
@@ -266,6 +265,9 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
 
     // We can now run the rest of the nodes
     for i in 2..args.num_nodes + 1 {
+        // Fetch contact info from $HOME/.safe/node/
+        let contact_info = read_bootstrap_info()?;
+
         // Construct current node's command arguments
         let node_dir = &args
             .nodes_dir
@@ -274,7 +276,7 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
             .to_string();
 
         let current_node_args =
-            build_node_args(common_args.clone(), &node_dir, Some(&genesis_contact_info));
+            build_node_args(common_args.clone(), &node_dir, Some(&contact_info));
 
         let msg = format!("Launching node #{}...", i);
         if args.verbosity > 0 {
@@ -289,7 +291,8 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
         )?;
 
         // We wait for a few secs before launching each new node
-        thread::sleep(interval_duration);
+        thread::sleep(Duration::from_secs(interval_duration));
+        //thread::sleep(Duration::from_millis(100 * i as u64));
     }
 
     println!("Done!");
@@ -390,46 +393,76 @@ fn run_node_cmd(
     Ok(())
 }
 
-fn read_genesis_conn_info(verbosity: u8) -> Result<String, String> {
+fn read_bootstrap_info() -> Result<String, String> {
     let user_dir = UserDirs::new().ok_or_else(|| "Could not fetch home directory".to_string())?;
-    let conn_info_path = user_dir.home_dir().join(GENESIS_CONN_INFO_FILEPATH);
+    let conn_info_path = user_dir.home_dir().join(BOOTSTRAP_CONN_INFO_PATH);
+    let entries = fs::read_dir(conn_info_path)
+        .map_err(|err| format!("Failed to read dir {}", err))?
+        .map(|res| res.map(|e| (e.path(), e.file_name())))
+        .collect::<Result<Vec<_>, std::io::Error>>()
+        .map_err(|err| format!("Failed to collect entries {}", err))?;
 
-    let file = File::open(&conn_info_path).map_err(|err| {
-        format!(
-            "Failed to open node connection information file at '{}': {}",
-            conn_info_path.display(),
-            err
-        )
-    })?;
-    let reader = BufReader::new(file);
-    let hard_coded_contacts: HashSet<SocketAddr> =
-        serde_json::from_reader(reader).map_err(|err| {
-            format!(
-                "Failed to parse content of node connection information file at '{}': {}",
-                conn_info_path.display(),
-                err
-            )
-        })?;
+    let localhost = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
+    let contacts = if entries.len() == 0 {
+        vec![SocketAddr::new(localhost, 12000).to_string()]
+    } else {
+        let mut rng = rand::thread_rng();
+        let index = rng.gen_range(0, entries.len());
+        if let Some((_, name)) = entries.get(index) {
+            let port = name.to_str().unwrap().parse::<u16>().unwrap();
+            let addr = SocketAddr::new(localhost, port).to_string();
+            println!("Connecting to: {:?}", addr);
+            vec![addr]
+        } else {
+            vec![SocketAddr::new(localhost, 12000).to_string()]
+        }
+    };
 
-    let contacts: Vec<String> = hard_coded_contacts.iter().map(|c| c.to_string()).collect();
-
-    let conn_info_str = serde_json::to_string(&contacts).map_err(|err| {
-        format!(
-            "Failed to generate genesis contacts list parameter: {}",
-            err
-        )
-    })?;
-
-    let msg = format!("Genesis node contact info: {}", conn_info_str);
-    if verbosity > 0 {
-        println!("Connection info directory: {}", conn_info_path.display());
-        println!("{}", msg);
-    }
-    debug!("{}", msg);
-    debug!("Connection info directory: {}", conn_info_path.display());
-
+    let conn_info_str = serde_json::to_string(&contacts)
+        .map_err(|err| format!("Failed to generate contact list parameter: {}", err))?;
     Ok(conn_info_str)
 }
+
+// fn read_genesis_conn_info(verbosity: u8) -> Result<String, String> {
+//     let user_dir = UserDirs::new().ok_or_else(|| "Could not fetch home directory".to_string())?;
+//     let conn_info_path = user_dir.home_dir().join(GENESIS_CONN_INFO_FILEPATH);
+
+//     let file = File::open(&conn_info_path).map_err(|err| {
+//         format!(
+//             "Failed to open node connection information file at '{}': {}",
+//             conn_info_path.display(),
+//             err
+//         )
+//     })?;
+//     let reader = BufReader::new(file);
+//     let hard_coded_contacts: HashSet<SocketAddr> =
+//         serde_json::from_reader(reader).map_err(|err| {
+//             format!(
+//                 "Failed to parse content of node connection information file at '{}': {}",
+//                 conn_info_path.display(),
+//                 err
+//             )
+//         })?;
+
+//     let contacts: Vec<String> = hard_coded_contacts.iter().map(|c| c.to_string()).collect();
+
+//     let conn_info_str = serde_json::to_string(&contacts).map_err(|err| {
+//         format!(
+//             "Failed to generate genesis contacts list parameter: {}",
+//             err
+//         )
+//     })?;
+
+//     let msg = format!("Genesis node contact info: {}", conn_info_str);
+//     if verbosity > 0 {
+//         println!("Connection info directory: {}", conn_info_path.display());
+//         println!("{}", msg);
+//     }
+//     debug!("{}", msg);
+//     debug!("Connection info directory: {}", conn_info_path.display());
+
+//     Ok(conn_info_str)
+// }
 
 fn get_rust_log(rust_log_from_args: Option<String>) -> String {
     let rust_log = match rust_log_from_args {
