@@ -14,7 +14,7 @@ use std::{
     env, fs,
     io::{self, Write},
     net::{IpAddr, Ipv4Addr, SocketAddr},
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::{Command, Stdio},
     thread,
     time::Duration,
@@ -365,7 +365,7 @@ fn build_node_args<'a>(
 }
 
 fn run_node_cmd(
-    node_path: &PathBuf,
+    node_path: &Path,
     args: &[&str],
     verbosity: u8,
     rust_log: String,
@@ -403,7 +403,7 @@ fn read_bootstrap_info() -> Result<String, String> {
         .map_err(|err| format!("Failed to collect entries {}", err))?;
 
     let localhost = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
-    let contacts = if entries.len() == 0 {
+    let contacts = if entries.is_empty() {
         vec![SocketAddr::new(localhost, 12000).to_string()]
     } else {
         let mut rng = rand::thread_rng();
@@ -422,47 +422,6 @@ fn read_bootstrap_info() -> Result<String, String> {
         .map_err(|err| format!("Failed to generate contact list parameter: {}", err))?;
     Ok(conn_info_str)
 }
-
-// fn read_genesis_conn_info(verbosity: u8) -> Result<String, String> {
-//     let user_dir = UserDirs::new().ok_or_else(|| "Could not fetch home directory".to_string())?;
-//     let conn_info_path = user_dir.home_dir().join(GENESIS_CONN_INFO_FILEPATH);
-
-//     let file = File::open(&conn_info_path).map_err(|err| {
-//         format!(
-//             "Failed to open node connection information file at '{}': {}",
-//             conn_info_path.display(),
-//             err
-//         )
-//     })?;
-//     let reader = BufReader::new(file);
-//     let hard_coded_contacts: HashSet<SocketAddr> =
-//         serde_json::from_reader(reader).map_err(|err| {
-//             format!(
-//                 "Failed to parse content of node connection information file at '{}': {}",
-//                 conn_info_path.display(),
-//                 err
-//             )
-//         })?;
-
-//     let contacts: Vec<String> = hard_coded_contacts.iter().map(|c| c.to_string()).collect();
-
-//     let conn_info_str = serde_json::to_string(&contacts).map_err(|err| {
-//         format!(
-//             "Failed to generate genesis contacts list parameter: {}",
-//             err
-//         )
-//     })?;
-
-//     let msg = format!("Genesis node contact info: {}", conn_info_str);
-//     if verbosity > 0 {
-//         println!("Connection info directory: {}", conn_info_path.display());
-//         println!("{}", msg);
-//     }
-//     debug!("{}", msg);
-//     debug!("Connection info directory: {}", conn_info_path.display());
-
-//     Ok(conn_info_str)
-// }
 
 fn get_rust_log(rust_log_from_args: Option<String>) -> String {
     let rust_log = match rust_log_from_args {
