@@ -7,7 +7,6 @@
 // specific language governing permissions and limitations relating to use of the SAFE Network
 // Software.
 
-use directories::{BaseDirs, UserDirs};
 use log::debug;
 use std::{
     collections::HashSet,
@@ -300,10 +299,8 @@ fn get_node_bin_path(node_path: Option<PathBuf>, verbosity: u8) -> Result<PathBu
     let node_bin_path = match node_path {
         Some(p) => p,
         None => {
-            let base_dirs =
-                BaseDirs::new().ok_or_else(|| "Failed to obtain user's home path".to_string())?;
+            let mut path = dirs_next::home_dir().ok_or_else(|| "Home directory not found")?;
 
-            let mut path = PathBuf::from(base_dirs.home_dir());
             path.push(".safe");
             path.push("node");
             path.push(SN_NODE_EXECUTABLE);
@@ -391,8 +388,8 @@ fn run_node_cmd(
 }
 
 fn read_genesis_conn_info(verbosity: u8) -> Result<String, String> {
-    let user_dir = UserDirs::new().ok_or_else(|| "Could not fetch home directory".to_string())?;
-    let conn_info_path = user_dir.home_dir().join(GENESIS_CONN_INFO_FILEPATH);
+    let home_dir = dirs_next::home_dir().ok_or_else(|| "Home directory not found")?;
+    let conn_info_path = home_dir.join(GENESIS_CONN_INFO_FILEPATH);
 
     let file = File::open(&conn_info_path).map_err(|err| {
         format!(
