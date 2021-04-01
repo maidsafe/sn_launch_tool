@@ -222,7 +222,7 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
     }
 
     if args.is_local {
-        common_args.push("--local");
+        common_args.push("--loopback");
     }
 
     let rust_log = get_rust_log(args.rust_log);
