@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.1.0](https://github.com/maidsafe/sn_launch_tool/compare/v0.0.20...v0.1.0) (2021-04-01)
+
+
+### ⚠ BREAKING CHANGES
+
+* **args:** the new argument is for the latest version of sn_node
+
+### update
+
+* **args:** update args passed for the latest version of sn_node ([1fd88fb](https://github.com/maidsafe/sn_launch_tool/commit/1fd88fb099e0fd533b0a1f48af6c9b1d2341a8f2))
+
 ### [0.0.20](https://github.com/maidsafe/sn_launch_tool/compare/v0.0.19...v0.0.20) (2021-03-31)
 
 ### [0.0.19](https://github.com/maidsafe/sn_launch_tool/compare/v0.0.18...v0.0.19) (2021-03-03)
