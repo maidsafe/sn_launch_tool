@@ -14,7 +14,7 @@ use std::{
     fs::File,
     io::{self, BufReader, Write},
     net::SocketAddr,
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::{Command, Stdio},
     thread,
     time::Duration,
@@ -216,25 +216,22 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
     common_args.push("--keep-alive-interval-msec");
     common_args.push(&keep_alive);
 
-    if let Some(ref ip) = args.ip {
-        common_args.push("--local-ip");
-        common_args.push(ip);
-    }
-
-    if args.is_local {
-        common_args.push("--loopback");
-    }
+    let addr = if let Some(ref ip) = args.ip {
+        format!("{}:0", ip)
+    } else {
+        "127.0.0.1:0".to_string()
+    };
 
     let rust_log = get_rust_log(args.rust_log);
 
     // Construct genesis node's command arguments
     let genesis_node_dir = &args.nodes_dir.join("sn-node-genesis");
     let genesis_node_dir_str = genesis_node_dir.display().to_string();
-    let genesis_node_args = build_node_args(
-        common_args.clone(),
-        &genesis_node_dir_str,
-        None, /* genesis */
-    );
+    let mut genesis_args = common_args.clone();
+    genesis_args.push("--first");
+    genesis_args.push(&addr);
+    let genesis_node_args =
+        build_node_args(genesis_args, &genesis_node_dir_str, None /* genesis */);
 
     // Let's launch genesis node now
     let msg = "Launching genesis node (#1)...";
@@ -299,7 +296,7 @@ fn get_node_bin_path(node_path: Option<PathBuf>, verbosity: u8) -> Result<PathBu
     let node_bin_path = match node_path {
         Some(p) => p,
         None => {
-            let mut path = dirs_next::home_dir().ok_or_else(|| "Home directory not found")?;
+            let mut path = dirs_next::home_dir().ok_or("Home directory not found")?;
 
             path.push(".safe");
             path.push("node");
@@ -346,8 +343,6 @@ fn build_node_args<'a>(
     if let Some(contact) = contact_info {
         base_args.push("--hard-coded-contacts");
         base_args.push(contact);
-    } else {
-        base_args.push("--first");
     }
 
     base_args.push("--root-dir");
@@ -359,7 +354,7 @@ fn build_node_args<'a>(
 }
 
 fn run_node_cmd(
-    node_path: &PathBuf,
+    node_path: &Path,
     args: &[&str],
     verbosity: u8,
     rust_log: String,
