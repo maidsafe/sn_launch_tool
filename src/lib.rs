@@ -103,6 +103,10 @@ struct JoinCmdArgs {
     #[structopt(short = "y", long, parse(from_occurrences))]
     nodes_verbosity: u8,
 
+    /// Max storage to use while running the node
+    #[structopt(short, long)]
+    max_capacity: Option<u64>,
+
     /// List of node addresses to bootstrap to for joining
     #[structopt(short = "h", long)]
     hard_coded_contacts: Vec<SocketAddr>,
@@ -135,6 +139,13 @@ pub fn join_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
     // since the genesis node logs the contact info at INFO level
     let verbosity = format!("-{}", "v".repeat(2 + args.nodes_verbosity as usize));
     common_args.push(&verbosity);
+
+    let max_capacity_string;
+    if let Some(max_capacity) = args.max_capacity {
+        common_args.push("--max-capacity");
+        max_capacity_string = max_capacity.to_string();
+        common_args.push(&max_capacity_string);
+    }
 
     if args.hard_coded_contacts.is_empty() {
         let msg = "Failed to start a node. No contacts nodes provided.";
