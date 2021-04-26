@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.2.1](https://github.com/maidsafe/sn_launch_tool/compare/v0.2.0...v0.2.1) (2021-04-26)
+
+
+### Features
+
+* **args:** make aware of max capacity argument ([f9e241e](https://github.com/maidsafe/sn_launch_tool/commit/f9e241ed5f7e9331075901dc1ca32af17cfec168))
+
 ## [0.2.0](https://github.com/maidsafe/sn_launch_tool/compare/v0.1.0...v0.2.0) (2021-04-05)
 
 
