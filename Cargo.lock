@@ -270,7 +270,7 @@ dependencies = [
 
 [[package]]
 name = "sn_launch_tool"
-version = "0.2.3"
+version = "0.3.0"
 dependencies = [
  "dirs-next",
  "env_logger",
