@@ -111,6 +111,14 @@ struct JoinCmdArgs {
     #[structopt(short = "h", long)]
     hard_coded_contacts: Vec<SocketAddr>,
 
+    /// Local address for the node
+    #[structopt(long)]
+    local_addr: Option<SocketAddr>,
+
+    /// Public address for the node
+    #[structopt(long)]
+    public_addr: Option<SocketAddr>,
+
     /// RUST_LOG env var value to launch the nodes with.
     #[structopt(short = "l", long)]
     rust_log: Option<String>,
@@ -145,6 +153,20 @@ pub fn join_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
         common_args.push("--max-capacity");
         max_capacity_string = max_capacity.to_string();
         common_args.push(&max_capacity_string);
+    }
+
+    let local_addr_string;
+    if let Some(local_addr) = args.local_addr {
+        common_args.push("--local-addr");
+        local_addr_string = local_addr.to_string();
+        common_args.push(&local_addr_string);
+    }
+
+    let public_addr_string;
+    if let Some(public_addr) = args.public_addr {
+        common_args.push("--public-addr");
+        public_addr_string = public_addr.to_string();
+        common_args.push(&public_addr_string);
     }
 
     if args.hard_coded_contacts.is_empty() {
