@@ -189,9 +189,13 @@ pub fn join_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
     debug!("{}", msg);
     run_node_cmd(&node_bin_path, &current_node_args, args.verbosity, rust_log)?;
 
-    let msg = format!("Node logs are being stored at: {}/sn_node.log", node_dir);
+    let msg = format!(
+        "Node logs are being stored at: {}/sn_node_rCURRENT.log",
+        node_dir
+    );
     if args.verbosity > 0 {
         println!("{}", msg);
+        println!("(Note that log files are rotated, and subsequent files will be named sn_node_r[NNNNN].log, with values starting at 00000 and up to 99999.");
     }
 
     Ok(())
