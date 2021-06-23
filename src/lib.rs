@@ -30,7 +30,7 @@ const SN_NODE_EXECUTABLE: &str = "sn_node.exe";
 // Relative path from $HOME where to read the genesis node connection information from
 const GENESIS_CONN_INFO_FILEPATH: &str = ".safe/node/node_connection_info.config";
 
-const DEFAULT_RUST_LOG: &str = "sn_node=debug";
+const DEFAULT_RUST_LOG: &str = "safe_network=debug";
 
 /// Tool to launch Safe nodes to form a local single-section network
 ///
