@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.3.1](https://github.com/maidsafe/sn_launch_tool/compare/v0.3.0...v0.3.1) (2021-07-01)
+
+
+### Features
+
+* **args:** add clear-data arg ([7fef81a](https://github.com/maidsafe/sn_launch_tool/commit/7fef81a99fc4052f8b00f977197b7fbee0d7c571))
+* **args:** take local and public ip args ([98b7930](https://github.com/maidsafe/sn_launch_tool/commit/98b793048bf43c403563d96f8d62fd10b46ed4b9))
+
 ## [0.3.0](https://github.com/maidsafe/sn_launch_tool/compare/v0.2.3...v0.3.0) (2021-06-23)
 
 
