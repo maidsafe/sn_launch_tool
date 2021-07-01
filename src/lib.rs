@@ -122,6 +122,10 @@ struct JoinCmdArgs {
     /// RUST_LOG env var value to launch the nodes with.
     #[structopt(short = "l", long)]
     rust_log: Option<String>,
+
+    /// Clear data directory created by the previous instance
+    #[structopt(long = "clear-data")]
+    clear_data: bool,
 }
 
 pub fn run() -> Result<(), String> {
@@ -167,6 +171,10 @@ pub fn join_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
         common_args.push("--public-addr");
         public_addr_string = public_addr.to_string();
         common_args.push(&public_addr_string);
+    }
+
+    if args.clear_data {
+        common_args.push("--clear-data");
     }
 
     if args.hard_coded_contacts.is_empty() {
