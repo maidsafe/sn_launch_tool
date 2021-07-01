@@ -111,7 +111,7 @@ struct JoinCmdArgs {
     #[structopt(short = "h", long)]
     hard_coded_contacts: Vec<SocketAddr>,
 
-    /// Local address for the node
+    /// Local network address for the node, eg 192.168.1.100:12000
     #[structopt(long)]
     local_addr: Option<SocketAddr>,
 
@@ -123,7 +123,7 @@ struct JoinCmdArgs {
     #[structopt(short = "l", long)]
     rust_log: Option<String>,
 
-    /// Clear data directory created by the previous instance
+    /// Clear data directory created by a previous node run
     #[structopt(long = "clear-data")]
     clear_data: bool,
 }
