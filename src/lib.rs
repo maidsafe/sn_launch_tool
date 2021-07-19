@@ -8,6 +8,7 @@
 // Software.
 
 use log::debug;
+use std::fs;
 use std::{
     collections::HashSet,
     env,
@@ -64,7 +65,7 @@ struct CmdArgs {
 
     /// Number of nodes to spawn with the first one being the genesis. This number should be greater than 0.
     #[structopt(short = "n", long, default_value = "11", env = "NODE_COUNT")]
-    num_nodes: u8,
+    num_nodes: usize,
 
     /// Verbosity level for nodes logs (default: INFO)
     #[structopt(short = "y", long, parse(from_occurrences))]
@@ -224,12 +225,12 @@ pub fn join_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
     run_node_cmd(&node_bin_path, &current_node_args, args.verbosity, rust_log)?;
 
     let msg = format!(
-        "Node logs are being stored at: {}/sn_node_rCURRENT.log",
+        "Node logs are being stored at: {}/sn_node.log<DATETIME>",
         node_dir
     );
     if args.verbosity > 0 {
         println!("{}", msg);
-        println!("(Note that log files are rotated, and subsequent files will be named sn_node_r[NNNNN].log, with values starting at 00000 and up to 99999.");
+        println!("(Note that log files are rotated hourly, and subsequent files will be named sn_node.log<NEW DATE TINE>.");
     }
 
     Ok(())
@@ -312,18 +313,35 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
         );
     }
 
-    let end = if adding_nodes {
-        args.num_nodes
+    let paths = fs::read_dir(&args.nodes_dir)
+        .map_err(|_| "Could not read existing testnet log dir".to_string())?;
+
+    let existing_nodes_count = paths
+        .collect::<Result<Vec<_>, io::Error>>()
+        .map_err(|_| "Error collecting testnet log dir".to_string())?
+        .len();
+
+    println!("existing nodes: {:?}", existing_nodes_count);
+
+    // either we have genesis only, or all existing ndoes
+    let start = if existing_nodes_count == 0 {
+        1
     } else {
-        args.num_nodes - 1
+        existing_nodes_count
+    };
+    let end: usize = if adding_nodes {
+        existing_nodes_count + args.num_nodes
+    } else {
+        args.num_nodes
     };
 
     // We can now run the rest of the nodes
-    for i in 0..end {
+    for i in start..end {
+        let this_node = i + 1;
         // Construct current node's command arguments
         let node_dir = &args
             .nodes_dir
-            .join(&format!("sn-node-{}", i))
+            .join(&format!("sn-node-{}", this_node))
             .display()
             .to_string();
 
@@ -331,9 +349,9 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
             build_node_args(common_args.clone(), &node_dir, Some(&genesis_contact_info));
 
         let msg = if adding_nodes {
-            format!("Adding node #{}...", i)
+            format!("Adding node #{}...", this_node)
         } else {
-            format!("Launching node #{}...", i)
+            format!("Launching node #{}...", this_node)
         };
         if args.verbosity > 0 {
             println!("{}", msg);
