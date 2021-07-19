@@ -63,7 +63,7 @@ struct CmdArgs {
     nodes_dir: PathBuf,
 
     /// Number of nodes to spawn with the first one being the genesis. This number should be greater than 0.
-    #[structopt(short = "n", long, default_value = "8")]
+    #[structopt(short = "n", long, default_value = "11", env = "NODE_COUNT")]
     num_nodes: u8,
 
     /// Verbosity level for nodes logs (default: INFO)
@@ -73,6 +73,10 @@ struct CmdArgs {
     /// IP used to launch the nodes with.
     #[structopt(long = "ip")]
     ip: Option<String>,
+
+    /// IP used to launch the nodes with.
+    #[structopt(long = "add")]
+    add_nodes_to_existing_network: bool,
 
     /// Run the section locally.
     #[structopt(long = "local")]
@@ -255,6 +259,7 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
 
     let idle = args.idle_timeout_msec.to_string();
     let keep_alive = args.keep_alive_interval_msec.to_string();
+    let adding_nodes: bool = args.add_nodes_to_existing_network;
 
     common_args.push("--idle-timeout-msec");
     common_args.push(&idle);
@@ -268,32 +273,34 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
     };
 
     let rust_log = get_rust_log(args.rust_log);
-
-    // Construct genesis node's command arguments
-    let genesis_node_dir = &args.nodes_dir.join("sn-node-genesis");
-    let genesis_node_dir_str = genesis_node_dir.display().to_string();
-    let mut genesis_args = common_args.clone();
-    genesis_args.push("--first");
-    genesis_args.push(&addr);
-    let genesis_node_args =
-        build_node_args(genesis_args, &genesis_node_dir_str, None /* genesis */);
-
-    // Let's launch genesis node now
-    let msg = "Launching genesis node (#1)...";
-    if args.verbosity > 0 {
-        println!("{}", msg);
-    }
-    debug!("{}", msg);
-    run_node_cmd(
-        &node_bin_path,
-        &genesis_node_args,
-        args.verbosity,
-        rust_log.clone(),
-    )?;
-
     // Get port number of genesis node to pass it as hard-coded contact to the other nodes
     let interval_duration = Duration::from_secs(args.interval);
-    thread::sleep(interval_duration);
+
+    if !adding_nodes {
+        // Construct genesis node's command arguments
+        let genesis_node_dir = &args.nodes_dir.join("sn-node-genesis");
+        let genesis_node_dir_str = genesis_node_dir.display().to_string();
+        let mut genesis_args = common_args.clone();
+        genesis_args.push("--first");
+        genesis_args.push(&addr);
+        let genesis_node_args =
+            build_node_args(genesis_args, &genesis_node_dir_str, None /* genesis */);
+
+        // Let's launch genesis node now
+        let msg = "Launching genesis node (#1)...";
+        if args.verbosity > 0 {
+            println!("{}", msg);
+        }
+        debug!("{}", msg);
+        run_node_cmd(
+            &node_bin_path,
+            &genesis_node_args,
+            args.verbosity,
+            rust_log.clone(),
+        )?;
+
+        thread::sleep(interval_duration);
+    }
 
     // Fetch node_conn_info from $HOME/.safe/node/node_connection_info.config.
     let genesis_contact_info = read_genesis_conn_info(args.verbosity)?;
@@ -305,8 +312,14 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
         );
     }
 
+    let end = if adding_nodes {
+        args.num_nodes
+    } else {
+        args.num_nodes - 1
+    };
+
     // We can now run the rest of the nodes
-    for i in 2..args.num_nodes + 1 {
+    for i in 0..end {
         // Construct current node's command arguments
         let node_dir = &args
             .nodes_dir
@@ -317,7 +330,11 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
         let current_node_args =
             build_node_args(common_args.clone(), &node_dir, Some(&genesis_contact_info));
 
-        let msg = format!("Launching node #{}...", i);
+        let msg = if adding_nodes {
+            format!("Adding node #{}...", i)
+        } else {
+            format!("Launching node #{}...", i)
+        };
         if args.verbosity > 0 {
             println!("{}", msg);
         }
