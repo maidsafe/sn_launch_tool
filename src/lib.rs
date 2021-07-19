@@ -324,16 +324,15 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
     println!("existing nodes: {:?}", existing_nodes_count);
 
     // either we have genesis only, or all existing ndoes
-    let start = if existing_nodes_count == 0 {
-        1
-    } else {
-        existing_nodes_count
-    };
+    let start = existing_nodes_count;
+
     let end: usize = if adding_nodes {
         existing_nodes_count + args.num_nodes
     } else {
         args.num_nodes
     };
+
+    println!("start: {:?}, end: {:?}", start, end);
 
     // We can now run the rest of the nodes
     for i in start..end {
