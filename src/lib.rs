@@ -323,8 +323,9 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
 
     println!("{:?} existing nodes found", existing_nodes_count);
 
-    // either we have genesis only, or all existing ndoes
-    let start = existing_nodes_count;
+    if existing_nodes_count == 0 {
+        return Err("A genesis node could not be found.".to_string());
+    }
 
     let end: usize = if adding_nodes {
         existing_nodes_count + args.num_nodes
@@ -333,7 +334,7 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
     };
 
     // We can now run the rest of the nodes
-    for i in start..end {
+    for i in existing_nodes_count..end {
         let this_node = i + 1;
         // Construct current node's command arguments
         let node_dir = &args
