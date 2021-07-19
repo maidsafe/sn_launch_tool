@@ -321,7 +321,7 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
         .map_err(|_| "Error collecting testnet log dir".to_string())?
         .len();
 
-    println!("existing nodes: {:?}", existing_nodes_count);
+    println!("{:?} existing nodes found", existing_nodes_count);
 
     // either we have genesis only, or all existing ndoes
     let start = existing_nodes_count;
@@ -331,8 +331,6 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
     } else {
         args.num_nodes
     };
-
-    println!("start: {:?}, end: {:?}", start, end);
 
     // We can now run the rest of the nodes
     for i in start..end {
