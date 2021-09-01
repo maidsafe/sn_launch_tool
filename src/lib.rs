@@ -40,9 +40,8 @@ const NODE_LIVENESS_TIMEOUT: Duration = Duration::from_secs(2);
 /// Currently, this tool runs nodes on localhost (since that's the default if no IP address is given to the nodes)
 #[derive(Debug, StructOpt)]
 pub struct Launch {
-    /// Path where to locate sn_node/sn_node.exe binary. The SN_NODE_PATH env var can be also used to set the path
-    #[structopt(short = "p", long, env = "SN_NODE_PATH")]
-    node_path: Option<PathBuf>,
+    #[structopt(flatten)]
+    common: CommonArgs,
 
     /// Interval in seconds between launching each of the nodes
     #[structopt(short = "i", long, default_value = "1")]
@@ -64,10 +63,6 @@ pub struct Launch {
     #[structopt(short = "n", long, default_value = "11", env = "NODE_COUNT")]
     num_nodes: usize,
 
-    /// Verbosity level for nodes logs (default: INFO)
-    #[structopt(short = "y", long, parse(from_occurrences))]
-    nodes_verbosity: u8,
-
     /// IP used to launch the nodes with.
     #[structopt(long = "ip")]
     ip: Option<String>,
@@ -79,10 +74,6 @@ pub struct Launch {
     /// Run the section locally.
     #[structopt(long = "local")]
     is_local: bool,
-
-    /// RUST_LOG env var value to launch the nodes with.
-    #[structopt(short = "l", long)]
-    rust_log: Option<String>,
 }
 
 impl Launch {
@@ -95,17 +86,12 @@ impl Launch {
 /// Run a Safe node to join a network
 #[derive(Debug, StructOpt)]
 pub struct Join {
-    /// Path where to locate sn_node/sn_node.exe binary. The SN_NODE_PATH env var can be also used to set the path
-    #[structopt(short = "p", long, env = "SN_NODE_PATH")]
-    node_path: Option<PathBuf>,
+    #[structopt(flatten)]
+    common: CommonArgs,
 
     /// Path where the output directories for all the nodes are written
     #[structopt(short = "d", long, default_value = "./nodes")]
     nodes_dir: PathBuf,
-
-    /// Verbosity level for nodes logs (default: INFO)
-    #[structopt(short = "y", long, parse(from_occurrences))]
-    nodes_verbosity: u8,
 
     /// Max storage to use while running the node
     #[structopt(short, long)]
@@ -123,10 +109,6 @@ pub struct Join {
     #[structopt(long)]
     public_addr: Option<SocketAddr>,
 
-    /// RUST_LOG env var value to launch the nodes with.
-    #[structopt(short = "l", long)]
-    rust_log: Option<String>,
-
     /// Clear data directory created by a previous node run
     #[structopt(long = "clear-data")]
     clear_data: bool,
@@ -139,8 +121,23 @@ impl Join {
     }
 }
 
+#[derive(Debug, StructOpt)]
+struct CommonArgs {
+    /// Path where to locate sn_node/sn_node.exe binary. The SN_NODE_PATH env var can be also used to set the path
+    #[structopt(short = "p", long, env = "SN_NODE_PATH")]
+    node_path: Option<PathBuf>,
+
+    /// Verbosity level for nodes logs (default: INFO)
+    #[structopt(short = "y", long, parse(from_occurrences))]
+    nodes_verbosity: u8,
+
+    /// RUST_LOG env var value to launch the nodes with.
+    #[structopt(short = "l", long)]
+    rust_log: Option<String>,
+}
+
 fn launch(args: &Launch) -> Result<()> {
-    let node_bin_path = get_node_bin_path(args.node_path.as_deref())?;
+    let node_bin_path = get_node_bin_path(args.common.node_path.as_deref())?;
 
     debug!("Network size: {} nodes", args.num_nodes);
 
@@ -148,7 +145,7 @@ fn launch(args: &Launch) -> Result<()> {
 
     // We need a minimum of INFO level for nodes verbosity,
     // since the genesis node logs the contact info at INFO level
-    let verbosity = format!("-{}", "v".repeat(2 + args.nodes_verbosity as usize));
+    let verbosity = format!("-{}", "v".repeat(2 + args.common.nodes_verbosity as usize));
     common_node_args.push(&verbosity);
 
     let idle = args.idle_timeout_msec.to_string();
@@ -166,7 +163,7 @@ fn launch(args: &Launch) -> Result<()> {
         "127.0.0.1:0".to_string()
     };
 
-    let rust_log = get_rust_log(args.rust_log.as_deref());
+    let rust_log = get_rust_log(args.common.rust_log.as_deref());
     // Get port number of genesis node to pass it as hard-coded contact to the other nodes
     let interval_duration = Duration::from_secs(args.interval);
 
@@ -247,13 +244,13 @@ fn launch(args: &Launch) -> Result<()> {
 }
 
 fn join(args: &Join) -> Result<()> {
-    let node_bin_path = get_node_bin_path(args.node_path.as_deref())?;
+    let node_bin_path = get_node_bin_path(args.common.node_path.as_deref())?;
 
     let mut common_args: Vec<&str> = vec![];
 
     // We need a minimum of INFO level for nodes verbosity,
     // since the genesis node logs the contact info at INFO level
-    let verbosity = format!("-{}", "v".repeat(2 + args.nodes_verbosity as usize));
+    let verbosity = format!("-{}", "v".repeat(2 + args.common.nodes_verbosity as usize));
     common_args.push(&verbosity);
 
     let max_capacity_string;
@@ -295,7 +292,7 @@ fn join(args: &Join) -> Result<()> {
     let conn_info_str = serde_json::to_string(&contacts)
         .wrap_err("Failed to generate genesis contacts list parameter")?;
 
-    let rust_log = get_rust_log(args.rust_log.as_deref());
+    let rust_log = get_rust_log(args.common.rust_log.as_deref());
 
     debug!("Node to be started with contact(s): {}", conn_info_str);
 
