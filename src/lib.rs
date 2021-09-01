@@ -179,7 +179,10 @@ impl CommonArgs {
     fn node_cmd(&self) -> Result<NodeCmd> {
         let mut cmd = NodeCmd::new(self.node_path()?);
 
-        cmd.push_env("RUST_LOG", self.rust_log());
+        let rust_log = self.rust_log();
+        info!("Using RUST_LOG '{}'", rust_log);
+
+        cmd.push_env("RUST_LOG", rust_log);
         cmd.push_arg(
             // We need a minimum of INFO level for nodes verbosity,
             // since the genesis node logs the contact info at INFO level
@@ -222,9 +225,6 @@ fn launch(args: &Launch) -> Result<()> {
 
     let adding_nodes: bool = args.add_nodes_to_existing_network;
 
-    let rust_log = args.common.rust_log();
-    info!("Using RUST_LOG '{}'", rust_log);
-    // Get port number of genesis node to pass it as hard-coded contact to the other nodes
     let interval_duration = Duration::from_secs(args.interval);
 
     if !adding_nodes {
@@ -302,9 +302,6 @@ fn join(args: &Join) -> Result<()> {
         debug!("Failed to start a node. No contacts nodes provided.");
         return Ok(());
     }
-
-    let rust_log = args.common.rust_log();
-    info!("Using RUST_LOG '{}'", rust_log);
 
     debug!("Node to be started with contact(s): {:?}", args.hard_coded_contacts);
 
