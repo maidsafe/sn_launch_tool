@@ -13,7 +13,7 @@ use std::{
     borrow::Cow,
     collections::HashSet,
     env,
-    ffi::OsStr,
+    ffi::{OsStr, OsString},
     fs::File,
     io::{self, BufReader},
     net::SocketAddr,
@@ -142,10 +142,22 @@ impl CommonArgs {
     fn node_cmd(&self) -> Result<NodeCmd> {
         Ok(NodeCmd {
             path: self.node_path()?,
-            envs: vec![(OsStr::new("RUST_LOG").into(), match self.rust_log() {
-                Cow::Borrowed(val) => Cow::Borrowed(val.as_ref()),
-                Cow::Owned(val) => Cow::Owned(val.into()),
-            })],
+            envs: vec![(
+                OsStr::new("RUST_LOG").into(),
+                match self.rust_log() {
+                    Cow::Borrowed(val) => Cow::Borrowed(val.as_ref()),
+                    Cow::Owned(val) => Cow::Owned(val.into()),
+                },
+            )],
+            args: vec![
+                // We need a minimum of INFO level for nodes verbosity,
+                // since the genesis node logs the contact info at INFO level
+                OsString::from(format!(
+                    "-{}",
+                    "v".repeat(2 + self.nodes_verbosity as usize)
+                ))
+                .into(),
+            ],
         })
     }
 
@@ -181,11 +193,6 @@ fn launch(args: &Launch) -> Result<()> {
     debug!("Network size: {} nodes", args.num_nodes);
 
     let mut common_node_args: Vec<&str> = vec![];
-
-    // We need a minimum of INFO level for nodes verbosity,
-    // since the genesis node logs the contact info at INFO level
-    let verbosity = format!("-{}", "v".repeat(2 + args.common.nodes_verbosity as usize));
-    common_node_args.push(&verbosity);
 
     let idle = args.idle_timeout_msec.to_string();
     let keep_alive = args.keep_alive_interval_msec.to_string();
@@ -289,11 +296,6 @@ fn join(args: &Join) -> Result<()> {
 
     let mut common_args: Vec<&str> = vec![];
 
-    // We need a minimum of INFO level for nodes verbosity,
-    // since the genesis node logs the contact info at INFO level
-    let verbosity = format!("-{}", "v".repeat(2 + args.common.nodes_verbosity as usize));
-    common_args.push(&verbosity);
-
     let max_capacity_string;
     if let Some(max_capacity) = args.max_capacity {
         common_args.push("--max-capacity");
@@ -358,6 +360,7 @@ fn join(args: &Join) -> Result<()> {
 struct NodeCmd<'a> {
     path: Cow<'a, OsStr>,
     envs: Vec<(Cow<'a, OsStr>, Cow<'a, OsStr>)>,
+    args: Vec<Cow<'a, OsStr>>,
 }
 
 impl<'a> NodeCmd<'a> {
@@ -405,10 +408,11 @@ impl<'a> NodeCmd<'a> {
         trace!("Running '{}' with args {:?} ...", path_str, args);
 
         Command::new(&path_str)
+            .args(&self.args)
             .args(args)
             .envs(self.envs.iter().map(
                 // this looks like a no-op but really converts `&(_, _)` into `(_, _)`
-                |(key, value)| (key, value)
+                |(key, value)| (key, value),
             ))
             .stdout(Stdio::null())
             .stderr(Stdio::inherit())
