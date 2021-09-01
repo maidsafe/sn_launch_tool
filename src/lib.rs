@@ -13,6 +13,7 @@ use std::{
     borrow::Cow,
     collections::HashSet,
     env,
+    ffi::OsStr,
     fs::File,
     io::{self, BufReader},
     net::SocketAddr,
@@ -138,16 +139,26 @@ struct CommonArgs {
 }
 
 impl CommonArgs {
-    fn node_path(&self) -> Result<Cow<'_, Path>> {
-        match &self.node_path {
-            Some(p) => Ok(p.into()),
+    fn node_cmd(&self) -> Result<NodeCmd> {
+        Ok(NodeCmd {
+            path: self.node_path()?,
+            envs: vec![(OsStr::new("RUST_LOG").into(), match self.rust_log() {
+                Cow::Borrowed(val) => Cow::Borrowed(val.as_ref()),
+                Cow::Owned(val) => Cow::Owned(val.into()),
+            })],
+        })
+    }
+
+    fn node_path(&self) -> Result<Cow<'_, OsStr>> {
+        match &self.node_path.as_deref() {
+            Some(p) => Ok(p.as_os_str().into()),
             None => {
                 let mut path =
                     dirs_next::home_dir().ok_or_else(|| eyre!("Home directory not found"))?;
 
                 path.push(".safe/node");
                 path.push(SN_NODE_EXECUTABLE);
-                Ok(path.into())
+                Ok(path.into_os_string().into())
             }
         }
     }
@@ -164,8 +175,8 @@ impl CommonArgs {
 }
 
 fn launch(args: &Launch) -> Result<()> {
-    let node_path = args.common.node_path()?;
-    print_node_version(&node_path)?;
+    let node_cmd = args.common.node_cmd()?;
+    node_cmd.print_version()?;
 
     debug!("Network size: {} nodes", args.num_nodes);
 
@@ -208,7 +219,7 @@ fn launch(args: &Launch) -> Result<()> {
 
         // Let's launch genesis node now
         debug!("Launching genesis node (#1)...");
-        run_node_cmd(&node_path, &genesis_node_args, &rust_log)?;
+        node_cmd.run(&genesis_node_args)?;
 
         thread::sleep(interval_duration);
     }
@@ -262,7 +273,7 @@ fn launch(args: &Launch) -> Result<()> {
         } else {
             debug!("Launching node #{}...", this_node)
         };
-        run_node_cmd(&node_path, &current_node_args, &rust_log)?;
+        node_cmd.run(&current_node_args)?;
 
         // We wait for a few secs before launching each new node
         thread::sleep(interval_duration);
@@ -273,8 +284,8 @@ fn launch(args: &Launch) -> Result<()> {
 }
 
 fn join(args: &Join) -> Result<()> {
-    let node_path = args.common.node_path()?;
-    print_node_version(&node_path)?;
+    let node_cmd = args.common.node_cmd()?;
+    node_cmd.print_version()?;
 
     let mut common_args: Vec<&str> = vec![];
 
@@ -333,7 +344,7 @@ fn join(args: &Join) -> Result<()> {
     let current_node_args = build_node_args(common_args.clone(), &node_dir, Some(&conn_info_str));
 
     debug!("Launching node...");
-    run_node_cmd(&node_path, &current_node_args, &rust_log)?;
+    node_cmd.run(&current_node_args)?;
 
     debug!(
         "Node logs are being stored at: {}/sn_node.log<DATETIME>",
@@ -344,39 +355,79 @@ fn join(args: &Join) -> Result<()> {
     Ok(())
 }
 
-fn print_node_version(node_path: &Path) -> Result<()> {
-    let version = Command::new(&node_path)
-        .args(&["-V"])
-        .output()
-        .map_or_else(
-            |error| Err(eyre!(error)),
-            |output| {
-                if output.status.success() {
-                    Ok(output.stdout)
-                } else {
-                    Err(eyre!(
-                        "Process exited with non-zero status (status: {}, stderr: {})",
-                        output.status,
-                        String::from_utf8_lossy(&output.stderr)
-                    ))
-                }
-            },
-        )
-        .wrap_err_with(|| {
-            format!(
-                "Failed to run '{}' with args '{:?}'",
-                node_path.display(),
-                &["-V"]
+struct NodeCmd<'a> {
+    path: Cow<'a, OsStr>,
+    envs: Vec<(Cow<'a, OsStr>, Cow<'a, OsStr>)>,
+}
+
+impl<'a> NodeCmd<'a> {
+    fn path(&self) -> &Path {
+        Path::new(&self.path)
+    }
+
+    fn print_version(&self) -> Result<()> {
+        let version = Command::new(&self.path)
+            .args(&["-V"])
+            .output()
+            .map_or_else(
+                |error| Err(eyre!(error)),
+                |output| {
+                    if output.status.success() {
+                        Ok(output.stdout)
+                    } else {
+                        Err(eyre!(
+                            "Process exited with non-zero status (status: {}, stderr: {})",
+                            output.status,
+                            String::from_utf8_lossy(&output.stderr)
+                        ))
+                    }
+                },
             )
-        })?;
+            .wrap_err_with(|| {
+                format!(
+                    "Failed to run '{}' with args '{:?}'",
+                    self.path().display(),
+                    &["-V"]
+                )
+            })?;
 
-    debug!(
-        "Using sn_node @ {} from {}",
-        String::from_utf8_lossy(&version).trim(),
-        node_path.display()
-    );
+        debug!(
+            "Using sn_node @ {} from {}",
+            String::from_utf8_lossy(&version).trim(),
+            self.path().display()
+        );
 
-    Ok(())
+        Ok(())
+    }
+
+    fn run(&self, args: &[&str]) -> Result<()> {
+        let path_str = self.path().display().to_string();
+        trace!("Running '{}' with args {:?} ...", path_str, args);
+
+        Command::new(&path_str)
+            .args(args)
+            .envs(self.envs.iter().map(
+                // this looks like a no-op but really converts `&(_, _)` into `(_, _)`
+                |(key, value)| (key, value)
+            ))
+            .stdout(Stdio::null())
+            .stderr(Stdio::inherit())
+            .spawn()
+            .map_err(|error| eyre!(error))
+            .and_then(|mut child| {
+                // Wait a couple of seconds to see if the node fails immediately, so we can fail fast
+                thread::sleep(NODE_LIVENESS_TIMEOUT);
+
+                if let Some(status) = child.try_wait()? {
+                    return Err(eyre!("Node exited early (status: {})", status));
+                }
+
+                Ok(())
+            })
+            .wrap_err_with(|| format!("Failed to start '{}' with args '{:?}'", path_str, args))?;
+
+        Ok(())
+    }
 }
 
 fn build_node_args<'a>(
@@ -395,32 +446,6 @@ fn build_node_args<'a>(
     base_args.push(node_dir);
 
     base_args
-}
-
-fn run_node_cmd(node_path: &Path, args: &[&str], rust_log: &str) -> Result<()> {
-    let path_str = node_path.display().to_string();
-    trace!("Running '{}' with args {:?} ...", path_str, args);
-
-    Command::new(&path_str)
-        .args(args)
-        .env("RUST_LOG", rust_log)
-        .stdout(Stdio::null())
-        .stderr(Stdio::inherit())
-        .spawn()
-        .map_err(|error| eyre!(error))
-        .and_then(|mut child| {
-            // Wait a couple of seconds to see if the node fails immediately, so we can fail fast
-            thread::sleep(NODE_LIVENESS_TIMEOUT);
-
-            if let Some(status) = child.try_wait()? {
-                return Err(eyre!("Node exited early (status: {})", status));
-            }
-
-            Ok(())
-        })
-        .wrap_err_with(|| format!("Failed to start '{}' with args '{:?}'", path_str, args))?;
-
-    Ok(())
 }
 
 fn read_genesis_conn_info() -> Result<String> {
