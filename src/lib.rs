@@ -213,7 +213,7 @@ pub fn join_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
     debug!("{}", msg);
 
     // Construct current node's command arguments
-    let node_dir = &args.nodes_dir.display().to_string();
+    let node_dir = args.nodes_dir.display().to_string();
 
     let current_node_args = build_node_args(common_args.clone(), &node_dir, Some(&conn_info_str));
 
@@ -337,7 +337,7 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
     for i in existing_nodes_count..end {
         let this_node = i + 1;
         // Construct current node's command arguments
-        let node_dir = &args
+        let node_dir = args
             .nodes_dir
             .join(&format!("sn-node-{}", this_node))
             .display()
