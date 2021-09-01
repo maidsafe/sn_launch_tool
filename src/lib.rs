@@ -222,28 +222,24 @@ fn launch(args: &Launch) -> Result<()> {
 
     let adding_nodes: bool = args.add_nodes_to_existing_network;
 
-    let addr = if let Some(ref ip) = args.ip {
-        format!("{}:0", ip)
-    } else {
-        "127.0.0.1:0".to_string()
-    };
-
     let rust_log = args.common.rust_log();
     info!("Using RUST_LOG '{}'", rust_log);
     // Get port number of genesis node to pass it as hard-coded contact to the other nodes
     let interval_duration = Duration::from_secs(args.interval);
 
     if !adding_nodes {
-        // Construct genesis node's command arguments
-        let genesis_node_dir = &args.nodes_dir.join("sn-node-genesis");
-        let genesis_node_dir_str = genesis_node_dir.display().to_string();
-        let mut genesis_node_args = build_node_args(&genesis_node_dir_str, None);
-        genesis_node_args.push("--first");
-        genesis_node_args.push(&addr);
+        // Set genesis node's command arguments
+        let mut genesis_cmd = node_cmd.clone();
+        genesis_cmd.push_arg("--first");
+        if let Some(ip) = &args.ip {
+            genesis_cmd.push_arg(format!("{}:0", ip));
+        } else {
+            genesis_cmd.push_arg("127.0.0.1:0");
+        }
 
         // Let's launch genesis node now
         debug!("Launching genesis node (#1)...");
-        node_cmd.run(&genesis_node_args)?;
+        genesis_cmd.run(args.nodes_dir.join("sn-node-genesis"), &[])?;
 
         thread::sleep(interval_duration);
     }
@@ -279,21 +275,16 @@ fn launch(args: &Launch) -> Result<()> {
     // We can now run the rest of the nodes
     for i in existing_nodes_count..end {
         let this_node = i + 1;
-        // Construct current node's command arguments
-        let node_dir = args
-            .nodes_dir
-            .join(&format!("sn-node-{}", this_node))
-            .display()
-            .to_string();
-
-        let current_node_args = build_node_args(&node_dir, Some(&genesis_contact_info));
 
         if adding_nodes {
             debug!("Adding node #{}...", this_node)
         } else {
             debug!("Launching node #{}...", this_node)
         };
-        node_cmd.run(&current_node_args)?;
+        node_cmd.run(
+            args.nodes_dir.join(format!("sn-node-{}", this_node)),
+            &genesis_contact_info,
+        )?;
 
         // We wait for a few secs before launching each new node
         thread::sleep(interval_duration);
@@ -312,37 +303,24 @@ fn join(args: &Join) -> Result<()> {
         return Ok(());
     }
 
-    let contacts: Vec<String> = args
-        .hard_coded_contacts
-        .iter()
-        .map(|c| c.to_string())
-        .collect();
-
-    let conn_info_str = serde_json::to_string(&contacts)
-        .wrap_err("Failed to generate genesis contacts list parameter")?;
-
     let rust_log = args.common.rust_log();
     info!("Using RUST_LOG '{}'", rust_log);
 
-    debug!("Node to be started with contact(s): {}", conn_info_str);
-
-    // Construct current node's command arguments
-    let node_dir = args.nodes_dir.display().to_string();
-
-    let current_node_args = build_node_args(&node_dir, Some(&conn_info_str));
+    debug!("Node to be started with contact(s): {:?}", args.hard_coded_contacts);
 
     debug!("Launching node...");
-    node_cmd.run(&current_node_args)?;
+    node_cmd.run(&args.nodes_dir, &args.hard_coded_contacts)?;
 
     debug!(
         "Node logs are being stored at: {}/sn_node.log<DATETIME>",
-        node_dir
+        args.nodes_dir.display()
     );
     debug!("(Note that log files are rotated hourly, and subsequent files will be named sn_node.log<NEW DATE TINE>.");
 
     Ok(())
 }
 
+#[derive(Clone)]
 struct NodeCmd<'a> {
     path: Cow<'a, OsStr>,
     envs: Vec<(Cow<'a, OsStr>, Cow<'a, OsStr>)>,
@@ -424,13 +402,32 @@ impl<'a> NodeCmd<'a> {
         Ok(())
     }
 
-    fn run(&self, args: &[&str]) -> Result<()> {
+    fn run(&self, node_dir: impl AsRef<Path>, contacts: &[SocketAddr]) -> Result<()> {
         let path_str = self.path().display().to_string();
-        trace!("Running '{}' with args {:?} ...", path_str, args);
+        trace!("Running '{}' with args {:?} ...", path_str, self.args);
+
+        let mut extra_args = NodeArgs::default();
+        extra_args.push("--root-dir");
+        extra_args.push(node_dir.as_ref());
+        extra_args.push("--log-dir");
+        extra_args.push(node_dir.as_ref());
+
+        if !contacts.is_empty() {
+            extra_args.push("--hard-coded-contacts");
+            extra_args.push(
+                serde_json::to_string(
+                    &contacts
+                        .iter()
+                        .map(|contact| contact.to_string())
+                        .collect::<Vec<_>>(),
+                )
+                .wrap_err("Failed to generate genesis contacts list parameter")?,
+            );
+        }
 
         Command::new(&path_str)
             .args(&self.args)
-            .args(args)
+            .args(&extra_args)
             .envs(self.envs.iter().map(
                 // this looks like a no-op but really converts `&(_, _)` into `(_, _)`
                 |(key, value)| (key, value),
@@ -449,13 +446,15 @@ impl<'a> NodeCmd<'a> {
 
                 Ok(())
             })
-            .wrap_err_with(|| format!("Failed to start '{}' with args '{:?}'", path_str, args))?;
+            .wrap_err_with(|| {
+                format!("Failed to start '{}' with args '{:?}'", path_str, self.args)
+            })?;
 
         Ok(())
     }
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 struct NodeArgs<'a>(Vec<Cow<'a, OsStr>>);
 
 impl<'a> NodeArgs<'a> {
@@ -487,23 +486,7 @@ impl<'a> fmt::Debug for NodeArgs<'a> {
     }
 }
 
-fn build_node_args<'a>(node_dir: &'a str, contact_info: Option<&'a str>) -> Vec<&'a str> {
-    let mut base_args = Vec::new();
-
-    if let Some(contact) = contact_info {
-        base_args.push("--hard-coded-contacts");
-        base_args.push(contact);
-    }
-
-    base_args.push("--root-dir");
-    base_args.push(node_dir);
-    base_args.push("--log-dir");
-    base_args.push(node_dir);
-
-    base_args
-}
-
-fn read_genesis_conn_info() -> Result<String> {
+fn read_genesis_conn_info() -> Result<Vec<SocketAddr>> {
     let home_dir = dirs_next::home_dir().ok_or_else(|| eyre!("Home directory not found"))?;
     let conn_info_path = home_dir.join(GENESIS_CONN_INFO_FILEPATH);
 
@@ -522,15 +505,12 @@ fn read_genesis_conn_info() -> Result<String> {
             )
         })?;
 
-    let contacts: Vec<String> = hard_coded_contacts.iter().map(|c| c.to_string()).collect();
-
-    let conn_info_str = serde_json::to_string(&contacts)
-        .wrap_err("Failed to generate genesis contacts list parameter")?;
+    let contacts: Vec<SocketAddr> = hard_coded_contacts.into_iter().collect();
 
     debug!("Connection info directory: {}", conn_info_path.display());
-    debug!("Genesis node contact info: {}", conn_info_str);
+    debug!("Genesis node contact info: {:?}", contacts);
 
-    Ok(conn_info_str)
+    Ok(contacts)
 }
 
 fn into_cow_os_str<'a, V, Vb>(val: V) -> Cow<'a, OsStr>
