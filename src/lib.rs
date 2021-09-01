@@ -7,6 +7,7 @@
 // specific language governing permissions and limitations relating to use of the SAFE Network
 // Software.
 
+use eyre::{eyre, Result, WrapErr};
 use log::debug;
 use std::fs;
 use std::{
@@ -133,19 +134,19 @@ struct JoinCmdArgs {
     clear_data: bool,
 }
 
-pub fn run() -> Result<(), String> {
+pub fn run() -> Result<()> {
     run_with(None)
 }
 
-pub fn join() -> Result<(), String> {
+pub fn join() -> Result<()> {
     join_with(None)
 }
 
-pub fn join_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
+pub fn join_with(cmd_args: Option<&[&str]>) -> Result<()> {
     // Let's first get all the arguments passed in, either as function's args, or CLI args
     let args = match cmd_args {
         None => JoinCmdArgs::from_args(),
-        Some(cmd_args) => JoinCmdArgs::from_iter_safe(cmd_args).map_err(|err| err.to_string())?,
+        Some(cmd_args) => JoinCmdArgs::from_iter_safe(cmd_args)?,
     };
 
     let node_bin_path = get_node_bin_path(args.node_path, args.verbosity)?;
@@ -197,12 +198,8 @@ pub fn join_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
         .map(|c| c.to_string())
         .collect();
 
-    let conn_info_str = serde_json::to_string(&contacts).map_err(|err| {
-        format!(
-            "Failed to generate genesis contacts list parameter: {}",
-            err
-        )
-    })?;
+    let conn_info_str = serde_json::to_string(&contacts)
+        .wrap_err("Failed to generate genesis contacts list parameter")?;
 
     let rust_log = get_rust_log(args.rust_log);
 
@@ -236,11 +233,11 @@ pub fn join_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
     Ok(())
 }
 
-pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
+pub fn run_with(cmd_args: Option<&[&str]>) -> Result<()> {
     // Let's first get all the arguments passed in, either as function's args, or CLI args
     let args = match cmd_args {
         None => CmdArgs::from_args(),
-        Some(cmd_args) => CmdArgs::from_iter_safe(cmd_args).map_err(|err| err.to_string())?,
+        Some(cmd_args) => CmdArgs::from_iter_safe(cmd_args)?,
     };
 
     let node_bin_path = get_node_bin_path(args.node_path, args.verbosity)?;
@@ -313,18 +310,18 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
         );
     }
 
-    let paths = fs::read_dir(&args.nodes_dir)
-        .map_err(|_| "Could not read existing testnet log dir".to_string())?;
+    let paths =
+        fs::read_dir(&args.nodes_dir).wrap_err("Could not read existing testnet log dir")?;
 
     let existing_nodes_count = paths
         .collect::<Result<Vec<_>, io::Error>>()
-        .map_err(|_| "Error collecting testnet log dir".to_string())?
+        .wrap_err("Error collecting testnet log dir")?
         .len();
 
     println!("{:?} existing nodes found", existing_nodes_count);
 
     if existing_nodes_count == 0 {
-        return Err("A genesis node could not be found.".to_string());
+        return Err(eyre!("A genesis node could not be found."));
     }
 
     let end: usize = if adding_nodes {
@@ -370,11 +367,12 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<(), String> {
     Ok(())
 }
 
-fn get_node_bin_path(node_path: Option<PathBuf>, verbosity: u8) -> Result<PathBuf, String> {
+fn get_node_bin_path(node_path: Option<PathBuf>, verbosity: u8) -> Result<PathBuf> {
     let node_bin_path = match node_path {
         Some(p) => p,
         None => {
-            let mut path = dirs_next::home_dir().ok_or("Home directory not found")?;
+            let mut path =
+                dirs_next::home_dir().ok_or_else(|| eyre!("Home directory not found"))?;
 
             path.push(".safe");
             path.push("node");
@@ -396,18 +394,14 @@ fn get_node_bin_path(node_path: Option<PathBuf>, verbosity: u8) -> Result<PathBu
         let output = Command::new(&node_bin_path)
             .args(&["-V"])
             .output()
-            .map_err(|err| {
-                format!(
-                    "Failed to run '{}' with args '-V': {}",
-                    node_bin_path.display(),
-                    err
-                )
+            .wrap_err_with(|| {
+                format!("Failed to run '{}' with args '-V'", node_bin_path.display())
             })?;
 
         print!("Version: ");
         io::stdout()
             .write_all(&output.stdout)
-            .map_err(|err| format!("Failed to output version information: {}", err))?;
+            .wrap_err("Failed to output version information")?;
     }
 
     Ok(node_bin_path)
@@ -431,12 +425,7 @@ fn build_node_args<'a>(
     base_args
 }
 
-fn run_node_cmd(
-    node_path: &Path,
-    args: &[&str],
-    verbosity: u8,
-    rust_log: String,
-) -> Result<(), String> {
+fn run_node_cmd(node_path: &Path, args: &[&str], verbosity: u8, rust_log: String) -> Result<()> {
     let path_str = node_path.display().to_string();
     let msg = format!("Running '{}' with args {:?} ...", path_str, args);
     if verbosity > 1 {
@@ -450,45 +439,34 @@ fn run_node_cmd(
         .stdout(Stdio::null())
         .stderr(Stdio::inherit())
         .spawn()
-        .map_err(|err| {
-            format!(
-                "Failed to run '{}' with args '{:?}': {}",
-                path_str, args, err
-            )
-        })?;
+        .wrap_err_with(|| format!("Failed to run '{}' with args '{:?}'", path_str, args))?;
 
     Ok(())
 }
 
-fn read_genesis_conn_info(verbosity: u8) -> Result<String, String> {
-    let home_dir = dirs_next::home_dir().ok_or("Home directory not found")?;
+fn read_genesis_conn_info(verbosity: u8) -> Result<String> {
+    let home_dir = dirs_next::home_dir().ok_or_else(|| eyre!("Home directory not found"))?;
     let conn_info_path = home_dir.join(GENESIS_CONN_INFO_FILEPATH);
 
-    let file = File::open(&conn_info_path).map_err(|err| {
+    let file = File::open(&conn_info_path).wrap_err_with(|| {
         format!(
-            "Failed to open node connection information file at '{}': {}",
-            conn_info_path.display(),
-            err
+            "Failed to open node connection information file at '{}'",
+            conn_info_path.display()
         )
     })?;
     let reader = BufReader::new(file);
     let hard_coded_contacts: HashSet<SocketAddr> =
-        serde_json::from_reader(reader).map_err(|err| {
+        serde_json::from_reader(reader).wrap_err_with(|| {
             format!(
-                "Failed to parse content of node connection information file at '{}': {}",
-                conn_info_path.display(),
-                err
+                "Failed to parse content of node connection information file at '{}'",
+                conn_info_path.display()
             )
         })?;
 
     let contacts: Vec<String> = hard_coded_contacts.iter().map(|c| c.to_string()).collect();
 
-    let conn_info_str = serde_json::to_string(&contacts).map_err(|err| {
-        format!(
-            "Failed to generate genesis contacts list parameter: {}",
-            err
-        )
-    })?;
+    let conn_info_str = serde_json::to_string(&contacts)
+        .wrap_err("Failed to generate genesis contacts list parameter")?;
 
     let msg = format!("Genesis node contact info: {}", conn_info_str);
     if verbosity > 0 {

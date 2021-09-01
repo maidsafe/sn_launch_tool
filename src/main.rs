@@ -7,17 +7,16 @@
 // specific language governing permissions and limitations relating to use of the SAFE Network
 // Software.
 
-use log::{debug, error};
+use eyre::Result;
+use log::debug;
 use sn_launch_tool::run;
 pub use sn_launch_tool::run_with;
-use std::process;
 
-fn main() {
+fn main() -> Result<()> {
+    color_eyre::install()?;
     env_logger::init();
+
     debug!("Launching Safe nodes...");
 
-    if let Err(e) = run() {
-        error!("sn_launch_tool error: {}", e);
-        process::exit(1);
-    }
+    run()
 }
