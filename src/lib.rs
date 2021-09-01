@@ -187,21 +187,17 @@ impl CommonArgs {
 }
 
 fn launch(args: &Launch) -> Result<()> {
-    let node_cmd = args.common.node_cmd()?;
+    let mut node_cmd = args.common.node_cmd()?;
     node_cmd.print_version()?;
 
     debug!("Network size: {} nodes", args.num_nodes);
 
-    let mut common_node_args: Vec<&str> = vec![];
-
-    let idle = args.idle_timeout_msec.to_string();
-    let keep_alive = args.keep_alive_interval_msec.to_string();
     let adding_nodes: bool = args.add_nodes_to_existing_network;
 
-    common_node_args.push("--idle-timeout-msec");
-    common_node_args.push(&idle);
-    common_node_args.push("--keep-alive-interval-msec");
-    common_node_args.push(&keep_alive);
+    node_cmd.push_arg("--idle-timeout-msec");
+    node_cmd.push_arg(args.idle_timeout_msec.to_string());
+    node_cmd.push_arg("--keep-alive-interval-msec");
+    node_cmd.push_arg(args.keep_alive_interval_msec.to_string());
 
     let addr = if let Some(ref ip) = args.ip {
         format!("{}:0", ip)
@@ -218,11 +214,9 @@ fn launch(args: &Launch) -> Result<()> {
         // Construct genesis node's command arguments
         let genesis_node_dir = &args.nodes_dir.join("sn-node-genesis");
         let genesis_node_dir_str = genesis_node_dir.display().to_string();
-        let mut genesis_args = common_node_args.clone();
-        genesis_args.push("--first");
-        genesis_args.push(&addr);
-        let genesis_node_args =
-            build_node_args(genesis_args, &genesis_node_dir_str, None /* genesis */);
+        let mut genesis_node_args = build_node_args(&genesis_node_dir_str, None);
+        genesis_node_args.push("--first");
+        genesis_node_args.push(&addr);
 
         // Let's launch genesis node now
         debug!("Launching genesis node (#1)...");
@@ -236,7 +230,7 @@ fn launch(args: &Launch) -> Result<()> {
 
     debug!(
         "Common node args for launching the network: {:?}",
-        common_node_args
+        node_cmd.args
     );
 
     let paths =
@@ -269,11 +263,7 @@ fn launch(args: &Launch) -> Result<()> {
             .display()
             .to_string();
 
-        let current_node_args = build_node_args(
-            common_node_args.clone(),
-            &node_dir,
-            Some(&genesis_contact_info),
-        );
+        let current_node_args = build_node_args(&node_dir, Some(&genesis_contact_info));
 
         if adding_nodes {
             debug!("Adding node #{}...", this_node)
@@ -291,34 +281,26 @@ fn launch(args: &Launch) -> Result<()> {
 }
 
 fn join(args: &Join) -> Result<()> {
-    let node_cmd = args.common.node_cmd()?;
+    let mut node_cmd = args.common.node_cmd()?;
     node_cmd.print_version()?;
 
-    let mut common_args: Vec<&str> = vec![];
-
-    let max_capacity_string;
     if let Some(max_capacity) = args.max_capacity {
-        common_args.push("--max-capacity");
-        max_capacity_string = max_capacity.to_string();
-        common_args.push(&max_capacity_string);
+        node_cmd.push_arg("--max-capacity");
+        node_cmd.push_arg(max_capacity.to_string());
     }
 
-    let local_addr_string;
     if let Some(local_addr) = args.local_addr {
-        common_args.push("--local-addr");
-        local_addr_string = local_addr.to_string();
-        common_args.push(&local_addr_string);
+        node_cmd.push_arg("--local-addr");
+        node_cmd.push_arg(local_addr.to_string());
     }
 
-    let public_addr_string;
     if let Some(public_addr) = args.public_addr {
-        common_args.push("--public-addr");
-        public_addr_string = public_addr.to_string();
-        common_args.push(&public_addr_string);
+        node_cmd.push_arg("--public-addr");
+        node_cmd.push_arg(public_addr.to_string());
     }
 
     if args.clear_data {
-        common_args.push("--clear-data");
+        node_cmd.push_arg("--clear-data");
     }
 
     if args.hard_coded_contacts.is_empty() {
@@ -343,7 +325,7 @@ fn join(args: &Join) -> Result<()> {
     // Construct current node's command arguments
     let node_dir = args.nodes_dir.display().to_string();
 
-    let current_node_args = build_node_args(common_args.clone(), &node_dir, Some(&conn_info_str));
+    let current_node_args = build_node_args(&node_dir, Some(&conn_info_str));
 
     debug!("Launching node...");
     node_cmd.run(&current_node_args)?;
@@ -366,6 +348,18 @@ struct NodeCmd<'a> {
 impl<'a> NodeCmd<'a> {
     fn path(&self) -> &Path {
         Path::new(&self.path)
+    }
+
+    fn push_arg<A, B>(&mut self, arg: A)
+    where
+        A: Into<Cow<'a, B>>,
+        B: AsRef<OsStr> + ToOwned + ?Sized + 'a,
+        B::Owned: Into<OsString>,
+    {
+        self.args.push(match arg.into() {
+            Cow::Borrowed(arg) => Cow::Borrowed(arg.as_ref()),
+            Cow::Owned(arg) => Cow::Owned(arg.into()),
+        })
     }
 
     fn print_version(&self) -> Result<()> {
@@ -434,11 +428,9 @@ impl<'a> NodeCmd<'a> {
     }
 }
 
-fn build_node_args<'a>(
-    mut base_args: Vec<&'a str>,
-    node_dir: &'a str,
-    contact_info: Option<&'a str>,
-) -> Vec<&'a str> {
+fn build_node_args<'a>(node_dir: &'a str, contact_info: Option<&'a str>) -> Vec<&'a str> {
+    let mut base_args = Vec::new();
+
     if let Some(contact) = contact_info {
         base_args.push("--hard-coded-contacts");
         base_args.push(contact);
