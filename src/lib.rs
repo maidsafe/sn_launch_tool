@@ -38,9 +38,8 @@ const NODE_LIVENESS_TIMEOUT: Duration = Duration::from_secs(2);
 /// Tool to launch Safe nodes to form a local single-section network
 ///
 /// Currently, this tool runs nodes on localhost (since that's the default if no IP address is given to the nodes)
-#[derive(StructOpt, Debug)]
-#[structopt(name = "sn_launch_tool")]
-struct CmdArgs {
+#[derive(Debug, StructOpt)]
+pub struct Launch {
     /// Path where to locate sn_node/sn_node.exe binary. The SN_NODE_PATH env var can be also used to set the path
     #[structopt(short = "p", long, env = "SN_NODE_PATH")]
     node_path: Option<PathBuf>,
@@ -86,10 +85,16 @@ struct CmdArgs {
     rust_log: Option<String>,
 }
 
+impl Launch {
+    /// Launch a network with these arguments.
+    pub fn run(&self) -> Result<()> {
+        launch(self)
+    }
+}
+
 /// Run a Safe node to join a network
-#[derive(StructOpt, Debug)]
-#[structopt(name = "sn_launch_tool-join")]
-struct JoinCmdArgs {
+#[derive(Debug, StructOpt)]
+pub struct Join {
     /// Path where to locate sn_node/sn_node.exe binary. The SN_NODE_PATH env var can be also used to set the path
     #[structopt(short = "p", long, env = "SN_NODE_PATH")]
     node_path: Option<PathBuf>,
@@ -127,22 +132,122 @@ struct JoinCmdArgs {
     clear_data: bool,
 }
 
-pub fn run() -> Result<()> {
-    run_with(None)
+impl Join {
+    /// Join a network with these arguments.
+    pub fn run(&self) -> Result<()> {
+        join(self)
+    }
 }
 
-pub fn join() -> Result<()> {
-    join_with(None)
-}
+fn launch(args: &Launch) -> Result<()> {
+    let node_bin_path = get_node_bin_path(args.node_path.as_deref())?;
 
-pub fn join_with(cmd_args: Option<&[&str]>) -> Result<()> {
-    // Let's first get all the arguments passed in, either as function's args, or CLI args
-    let args = match cmd_args {
-        None => JoinCmdArgs::from_args(),
-        Some(cmd_args) => JoinCmdArgs::from_iter_safe(cmd_args)?,
+    debug!("Network size: {} nodes", args.num_nodes);
+
+    let mut common_node_args: Vec<&str> = vec![];
+
+    // We need a minimum of INFO level for nodes verbosity,
+    // since the genesis node logs the contact info at INFO level
+    let verbosity = format!("-{}", "v".repeat(2 + args.nodes_verbosity as usize));
+    common_node_args.push(&verbosity);
+
+    let idle = args.idle_timeout_msec.to_string();
+    let keep_alive = args.keep_alive_interval_msec.to_string();
+    let adding_nodes: bool = args.add_nodes_to_existing_network;
+
+    common_node_args.push("--idle-timeout-msec");
+    common_node_args.push(&idle);
+    common_node_args.push("--keep-alive-interval-msec");
+    common_node_args.push(&keep_alive);
+
+    let addr = if let Some(ref ip) = args.ip {
+        format!("{}:0", ip)
+    } else {
+        "127.0.0.1:0".to_string()
     };
 
-    let node_bin_path = get_node_bin_path(args.node_path)?;
+    let rust_log = get_rust_log(args.rust_log.as_deref());
+    // Get port number of genesis node to pass it as hard-coded contact to the other nodes
+    let interval_duration = Duration::from_secs(args.interval);
+
+    if !adding_nodes {
+        // Construct genesis node's command arguments
+        let genesis_node_dir = &args.nodes_dir.join("sn-node-genesis");
+        let genesis_node_dir_str = genesis_node_dir.display().to_string();
+        let mut genesis_args = common_node_args.clone();
+        genesis_args.push("--first");
+        genesis_args.push(&addr);
+        let genesis_node_args =
+            build_node_args(genesis_args, &genesis_node_dir_str, None /* genesis */);
+
+        // Let's launch genesis node now
+        debug!("Launching genesis node (#1)...");
+        run_node_cmd(&node_bin_path, &genesis_node_args, rust_log.clone())?;
+
+        thread::sleep(interval_duration);
+    }
+
+    // Fetch node_conn_info from $HOME/.safe/node/node_connection_info.config.
+    let genesis_contact_info = read_genesis_conn_info()?;
+
+    debug!(
+        "Common node args for launching the network: {:?}",
+        common_node_args
+    );
+
+    let paths =
+        fs::read_dir(&args.nodes_dir).wrap_err("Could not read existing testnet log dir")?;
+
+    let existing_nodes_count = paths
+        .collect::<Result<Vec<_>, io::Error>>()
+        .wrap_err("Error collecting testnet log dir")?
+        .len();
+
+    info!("{:?} existing nodes found", existing_nodes_count);
+
+    if existing_nodes_count == 0 {
+        return Err(eyre!("A genesis node could not be found."));
+    }
+
+    let end: usize = if adding_nodes {
+        existing_nodes_count + args.num_nodes
+    } else {
+        args.num_nodes
+    };
+
+    // We can now run the rest of the nodes
+    for i in existing_nodes_count..end {
+        let this_node = i + 1;
+        // Construct current node's command arguments
+        let node_dir = args
+            .nodes_dir
+            .join(&format!("sn-node-{}", this_node))
+            .display()
+            .to_string();
+
+        let current_node_args = build_node_args(
+            common_node_args.clone(),
+            &node_dir,
+            Some(&genesis_contact_info),
+        );
+
+        if adding_nodes {
+            debug!("Adding node #{}...", this_node)
+        } else {
+            debug!("Launching node #{}...", this_node)
+        };
+        run_node_cmd(&node_bin_path, &current_node_args, rust_log.clone())?;
+
+        // We wait for a few secs before launching each new node
+        thread::sleep(interval_duration);
+    }
+
+    info!("Done!");
+    Ok(())
+}
+
+fn join(args: &Join) -> Result<()> {
+    let node_bin_path = get_node_bin_path(args.node_path.as_deref())?;
 
     let mut common_args: Vec<&str> = vec![];
 
@@ -190,7 +295,7 @@ pub fn join_with(cmd_args: Option<&[&str]>) -> Result<()> {
     let conn_info_str = serde_json::to_string(&contacts)
         .wrap_err("Failed to generate genesis contacts list parameter")?;
 
-    let rust_log = get_rust_log(args.rust_log);
+    let rust_log = get_rust_log(args.rust_log.as_deref());
 
     debug!("Node to be started with contact(s): {}", conn_info_str);
 
@@ -211,119 +316,9 @@ pub fn join_with(cmd_args: Option<&[&str]>) -> Result<()> {
     Ok(())
 }
 
-pub fn run_with(cmd_args: Option<&[&str]>) -> Result<()> {
-    // Let's first get all the arguments passed in, either as function's args, or CLI args
-    let args = match cmd_args {
-        None => CmdArgs::from_args(),
-        Some(cmd_args) => CmdArgs::from_iter_safe(cmd_args)?,
-    };
-
-    let node_bin_path = get_node_bin_path(args.node_path)?;
-
-    debug!("Network size: {} nodes", args.num_nodes);
-
-    let mut common_args: Vec<&str> = vec![];
-
-    // We need a minimum of INFO level for nodes verbosity,
-    // since the genesis node logs the contact info at INFO level
-    let verbosity = format!("-{}", "v".repeat(2 + args.nodes_verbosity as usize));
-    common_args.push(&verbosity);
-
-    let idle = args.idle_timeout_msec.to_string();
-    let keep_alive = args.keep_alive_interval_msec.to_string();
-    let adding_nodes: bool = args.add_nodes_to_existing_network;
-
-    common_args.push("--idle-timeout-msec");
-    common_args.push(&idle);
-    common_args.push("--keep-alive-interval-msec");
-    common_args.push(&keep_alive);
-
-    let addr = if let Some(ref ip) = args.ip {
-        format!("{}:0", ip)
-    } else {
-        "127.0.0.1:0".to_string()
-    };
-
-    let rust_log = get_rust_log(args.rust_log);
-    // Get port number of genesis node to pass it as hard-coded contact to the other nodes
-    let interval_duration = Duration::from_secs(args.interval);
-
-    if !adding_nodes {
-        // Construct genesis node's command arguments
-        let genesis_node_dir = &args.nodes_dir.join("sn-node-genesis");
-        let genesis_node_dir_str = genesis_node_dir.display().to_string();
-        let mut genesis_args = common_args.clone();
-        genesis_args.push("--first");
-        genesis_args.push(&addr);
-        let genesis_node_args =
-            build_node_args(genesis_args, &genesis_node_dir_str, None /* genesis */);
-
-        // Let's launch genesis node now
-        debug!("Launching genesis node (#1)...");
-        run_node_cmd(&node_bin_path, &genesis_node_args, rust_log.clone())?;
-
-        thread::sleep(interval_duration);
-    }
-
-    // Fetch node_conn_info from $HOME/.safe/node/node_connection_info.config.
-    let genesis_contact_info = read_genesis_conn_info()?;
-
-    debug!(
-        "Common node args for launching the network: {:?}",
-        common_args
-    );
-
-    let paths =
-        fs::read_dir(&args.nodes_dir).wrap_err("Could not read existing testnet log dir")?;
-
-    let existing_nodes_count = paths
-        .collect::<Result<Vec<_>, io::Error>>()
-        .wrap_err("Error collecting testnet log dir")?
-        .len();
-
-    info!("{:?} existing nodes found", existing_nodes_count);
-
-    if existing_nodes_count == 0 {
-        return Err(eyre!("A genesis node could not be found."));
-    }
-
-    let end: usize = if adding_nodes {
-        existing_nodes_count + args.num_nodes
-    } else {
-        args.num_nodes
-    };
-
-    // We can now run the rest of the nodes
-    for i in existing_nodes_count..end {
-        let this_node = i + 1;
-        // Construct current node's command arguments
-        let node_dir = args
-            .nodes_dir
-            .join(&format!("sn-node-{}", this_node))
-            .display()
-            .to_string();
-
-        let current_node_args =
-            build_node_args(common_args.clone(), &node_dir, Some(&genesis_contact_info));
-
-        if adding_nodes {
-            debug!("Adding node #{}...", this_node)
-        } else {
-            debug!("Launching node #{}...", this_node)
-        };
-        run_node_cmd(&node_bin_path, &current_node_args, rust_log.clone())?;
-
-        // We wait for a few secs before launching each new node
-        thread::sleep(interval_duration);
-    }
-
-    info!("Done!");
-    Ok(())
-}
-
-fn get_node_bin_path(node_path: Option<PathBuf>) -> Result<PathBuf> {
+fn get_node_bin_path(node_path: Option<&Path>) -> Result<PathBuf> {
     let node_bin_path = match node_path {
-        Some(p) => p,
+        Some(p) => p.into(),
         None => {
             let mut path =
                 dirs_next::home_dir().ok_or_else(|| eyre!("Home directory not found"))?;
@@ -442,9 +437,9 @@ fn read_genesis_conn_info() -> Result<String> {
     Ok(conn_info_str)
 }
 
-fn get_rust_log(rust_log_from_args: Option<String>) -> String {
+fn get_rust_log(rust_log_from_args: Option<&str>) -> String {
     let rust_log = match rust_log_from_args {
-        Some(rust_log_flag) => rust_log_flag,
+        Some(rust_log_flag) => rust_log_flag.to_string(),
         None => match env::var("RUST_LOG") {
             Ok(rust_log_env) => rust_log_env,
             Err(_) => DEFAULT_RUST_LOG.to_string(),
