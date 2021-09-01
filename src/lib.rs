@@ -10,6 +10,7 @@
 use eyre::{eyre, Result, WrapErr};
 use std::fs;
 use std::{
+    borrow::Cow,
     collections::HashSet,
     env,
     fs::File,
@@ -136,8 +137,25 @@ struct CommonArgs {
     rust_log: Option<String>,
 }
 
+impl CommonArgs {
+    fn node_path(&self) -> Result<Cow<'_, Path>> {
+        match &self.node_path {
+            Some(p) => Ok(p.into()),
+            None => {
+                let mut path =
+                    dirs_next::home_dir().ok_or_else(|| eyre!("Home directory not found"))?;
+
+                path.push(".safe/node");
+                path.push(SN_NODE_EXECUTABLE);
+                Ok(path.into())
+            }
+        }
+    }
+}
+
 fn launch(args: &Launch) -> Result<()> {
-    let node_bin_path = get_node_bin_path(args.common.node_path.as_deref())?;
+    let node_path = args.common.node_path()?;
+    print_node_version(&node_path)?;
 
     debug!("Network size: {} nodes", args.num_nodes);
 
@@ -179,7 +197,7 @@ fn launch(args: &Launch) -> Result<()> {
 
         // Let's launch genesis node now
         debug!("Launching genesis node (#1)...");
-        run_node_cmd(&node_bin_path, &genesis_node_args, rust_log.clone())?;
+        run_node_cmd(&node_path, &genesis_node_args, rust_log.clone())?;
 
         thread::sleep(interval_duration);
     }
@@ -233,7 +251,7 @@ fn launch(args: &Launch) -> Result<()> {
         } else {
             debug!("Launching node #{}...", this_node)
         };
-        run_node_cmd(&node_bin_path, &current_node_args, rust_log.clone())?;
+        run_node_cmd(&node_path, &current_node_args, rust_log.clone())?;
 
         // We wait for a few secs before launching each new node
         thread::sleep(interval_duration);
@@ -244,7 +262,8 @@ fn launch(args: &Launch) -> Result<()> {
 }
 
 fn join(args: &Join) -> Result<()> {
-    let node_bin_path = get_node_bin_path(args.common.node_path.as_deref())?;
+    let node_path = args.common.node_path()?;
+    print_node_version(&node_path)?;
 
     let mut common_args: Vec<&str> = vec![];
 
@@ -302,7 +321,7 @@ fn join(args: &Join) -> Result<()> {
     let current_node_args = build_node_args(common_args.clone(), &node_dir, Some(&conn_info_str));
 
     debug!("Launching node...");
-    run_node_cmd(&node_bin_path, &current_node_args, rust_log)?;
+    run_node_cmd(&node_path, &current_node_args, rust_log)?;
 
     debug!(
         "Node logs are being stored at: {}/sn_node.log<DATETIME>",
@@ -313,20 +332,8 @@ fn join(args: &Join) -> Result<()> {
     Ok(())
 }
 
-fn get_node_bin_path(node_path: Option<&Path>) -> Result<PathBuf> {
-    let node_bin_path = match node_path {
-        Some(p) => p.into(),
-        None => {
-            let mut path =
-                dirs_next::home_dir().ok_or_else(|| eyre!("Home directory not found"))?;
-
-            path.push(".safe/node");
-            path.push(SN_NODE_EXECUTABLE);
-            path
-        }
-    };
-
-    let version = Command::new(&node_bin_path)
+fn print_node_version(node_path: &Path) -> Result<()> {
+    let version = Command::new(&node_path)
         .args(&["-V"])
         .output()
         .map_or_else(
@@ -346,7 +353,7 @@ fn get_node_bin_path(node_path: Option<&Path>) -> Result<PathBuf> {
         .wrap_err_with(|| {
             format!(
                 "Failed to run '{}' with args '{:?}'",
-                node_bin_path.display(),
+                node_path.display(),
                 &["-V"]
             )
         })?;
@@ -354,10 +361,10 @@ fn get_node_bin_path(node_path: Option<&Path>) -> Result<PathBuf> {
     debug!(
         "Using sn_node @ {} from {}",
         String::from_utf8_lossy(&version).trim(),
-        node_bin_path.display()
+        node_path.display()
     );
 
-    Ok(node_bin_path)
+    Ok(())
 }
 
 fn build_node_args<'a>(
