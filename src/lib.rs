@@ -33,6 +33,7 @@ const SN_NODE_EXECUTABLE: &str = "sn_node.exe";
 const GENESIS_CONN_INFO_FILEPATH: &str = ".safe/node/node_connection_info.config";
 
 const DEFAULT_RUST_LOG: &str = "safe_network=debug";
+const NODE_LIVENESS_TIMEOUT: Duration = Duration::from_secs(2);
 
 /// Tool to launch Safe nodes to form a local single-section network
 ///
@@ -336,6 +337,20 @@ fn get_node_bin_path(node_path: Option<PathBuf>) -> Result<PathBuf> {
     let version = Command::new(&node_bin_path)
         .args(&["-V"])
         .output()
+        .map_or_else(
+            |error| Err(eyre!(error)),
+            |output| {
+                if output.status.success() {
+                    Ok(output.stdout)
+                } else {
+                    Err(eyre!(
+                        "Process exited with non-zero status (status: {}, stderr: {})",
+                        output.status,
+                        String::from_utf8_lossy(&output.stderr)
+                    ))
+                }
+            },
+        )
         .wrap_err_with(|| {
             format!(
                 "Failed to run '{}' with args '{:?}'",
@@ -375,13 +390,24 @@ fn run_node_cmd(node_path: &Path, args: &[&str], rust_log: String) -> Result<()>
     let path_str = node_path.display().to_string();
     trace!("Running '{}' with args {:?} ...", path_str, args);
 
-    let _child = Command::new(&path_str)
+    Command::new(&path_str)
         .args(args)
         .env("RUST_LOG", rust_log)
         .stdout(Stdio::null())
         .stderr(Stdio::inherit())
         .spawn()
-        .wrap_err_with(|| format!("Failed to run '{}' with args '{:?}'", path_str, args))?;
+        .map_err(|error| eyre!(error))
+        .and_then(|mut child| {
+            // Wait a couple of seconds to see if the node fails immediately, so we can fail fast
+            thread::sleep(NODE_LIVENESS_TIMEOUT);
+
+            if let Some(status) = child.try_wait()? {
+                return Err(eyre!("Node exited early (status: {})", status));
+            }
+
+            Ok(())
+        })
+        .wrap_err_with(|| format!("Failed to start '{}' with args '{:?}'", path_str, args))?;
 
     Ok(())
 }
