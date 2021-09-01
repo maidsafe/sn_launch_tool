@@ -223,11 +223,9 @@ fn launch(args: &Launch) -> Result<()> {
 
     debug!("Network size: {} nodes", args.num_nodes);
 
-    let adding_nodes: bool = args.add_nodes_to_existing_network;
-
     let interval_duration = Duration::from_secs(args.interval);
 
-    if !adding_nodes {
+    if !args.add_nodes_to_existing_network {
         // Set genesis node's command arguments
         let mut genesis_cmd = node_cmd.clone();
         genesis_cmd.push_arg("--first");
@@ -266,7 +264,7 @@ fn launch(args: &Launch) -> Result<()> {
         return Err(eyre!("A genesis node could not be found."));
     }
 
-    let end: usize = if adding_nodes {
+    let end: usize = if args.add_nodes_to_existing_network {
         existing_nodes_count + args.num_nodes
     } else {
         args.num_nodes
@@ -276,7 +274,7 @@ fn launch(args: &Launch) -> Result<()> {
     for i in existing_nodes_count..end {
         let this_node = i + 1;
 
-        if adding_nodes {
+        if args.add_nodes_to_existing_network {
             debug!("Adding node #{}...", this_node)
         } else {
             debug!("Launching node #{}...", this_node)
