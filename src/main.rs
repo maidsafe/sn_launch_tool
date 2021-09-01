@@ -8,8 +8,8 @@
 // Software.
 
 use eyre::Result;
-use sn_launch_tool::run;
-pub use sn_launch_tool::run_with;
+use sn_launch_tool::Launch;
+use structopt::StructOpt;
 use tracing::debug;
 
 fn main() -> Result<()> {
@@ -18,5 +18,5 @@ fn main() -> Result<()> {
 
     debug!("Launching Safe nodes...");
 
-    run()
+    Launch::from_args().run()
 }
