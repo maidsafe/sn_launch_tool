@@ -14,6 +14,7 @@ use std::{
     collections::HashSet,
     env,
     ffi::{OsStr, OsString},
+    fmt,
     fs::File,
     io::{self, BufReader},
     net::SocketAddr,
@@ -176,7 +177,7 @@ struct CommonArgs {
 
 impl CommonArgs {
     fn node_cmd(&self) -> Result<NodeCmd> {
-        Ok(NodeCmd {
+        let mut cmd = NodeCmd {
             path: self.node_path()?,
             envs: vec![(
                 OsStr::new("RUST_LOG").into(),
@@ -185,16 +186,16 @@ impl CommonArgs {
                     Cow::Owned(val) => Cow::Owned(val.into()),
                 },
             )],
-            args: vec![
-                // We need a minimum of INFO level for nodes verbosity,
-                // since the genesis node logs the contact info at INFO level
-                OsString::from(format!(
-                    "-{}",
-                    "v".repeat(2 + self.nodes_verbosity as usize)
-                ))
-                .into(),
-            ],
-        })
+            args: Default::default(),
+        };
+
+        cmd.push_arg(
+            // We need a minimum of INFO level for nodes verbosity,
+            // since the genesis node logs the contact info at INFO level
+            format!("-{}", "v".repeat(2 + self.nodes_verbosity as usize)),
+        );
+
+        Ok(cmd)
     }
 
     fn node_path(&self) -> Result<Cow<'_, OsStr>> {
@@ -354,7 +355,7 @@ fn join(args: &Join) -> Result<()> {
 struct NodeCmd<'a> {
     path: Cow<'a, OsStr>,
     envs: Vec<(Cow<'a, OsStr>, Cow<'a, OsStr>)>,
-    args: Vec<Cow<'a, OsStr>>,
+    args: NodeArgs<'a>,
 }
 
 impl<'a> NodeCmd<'a> {
@@ -368,10 +369,7 @@ impl<'a> NodeCmd<'a> {
         B: AsRef<OsStr> + ToOwned + ?Sized + 'a,
         B::Owned: Into<OsString>,
     {
-        self.args.push(match arg.into() {
-            Cow::Borrowed(arg) => Cow::Borrowed(arg.as_ref()),
-            Cow::Owned(arg) => Cow::Owned(arg.into()),
-        })
+        self.args.push(arg);
     }
 
     fn print_version(&self) -> Result<()> {
@@ -437,6 +435,41 @@ impl<'a> NodeCmd<'a> {
             .wrap_err_with(|| format!("Failed to start '{}' with args '{:?}'", path_str, args))?;
 
         Ok(())
+    }
+}
+
+#[derive(Default)]
+struct NodeArgs<'a>(Vec<Cow<'a, OsStr>>);
+
+impl<'a> NodeArgs<'a> {
+    fn push<A, B>(&mut self, arg: A)
+    where
+        A: Into<Cow<'a, B>>,
+        B: AsRef<OsStr> + ToOwned + ?Sized + 'a,
+        B::Owned: Into<OsString>,
+    {
+        self.0.push(match arg.into() {
+            Cow::Borrowed(arg) => Cow::Borrowed(arg.as_ref()),
+            Cow::Owned(arg) => Cow::Owned(arg.into()),
+        });
+    }
+}
+
+impl<'a> IntoIterator for &'a NodeArgs<'a> {
+    type Item = &'a Cow<'a, OsStr>;
+
+    type IntoIter = std::slice::Iter<'a, Cow<'a, OsStr>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
+
+impl<'a> fmt::Debug for NodeArgs<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_list()
+            .entries(self.0.iter().map(|arg| -> &OsStr { arg.as_ref() }))
+            .finish()
     }
 }
 
