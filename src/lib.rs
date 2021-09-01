@@ -10,14 +10,14 @@
 mod cmd;
 
 use eyre::{eyre, Result, WrapErr};
-use std::fs;
 use std::{
     borrow::Cow,
     collections::HashSet,
     env,
-    fs::File,
-    io::{self, BufReader},
+    fs::{self, File},
+    io::BufReader,
     net::SocketAddr,
+    ops::RangeInclusive,
     path::PathBuf,
     thread,
     time::Duration,
@@ -92,23 +92,11 @@ impl Launch {
 
         debug!("Network size: {} nodes", self.num_nodes);
 
-        let interval_duration = Duration::from_secs(self.interval);
+        let interval = Duration::from_secs(self.interval);
 
         if !self.add_nodes_to_existing_network {
-            // Set genesis node's command arguments
-            let mut genesis_cmd = node_cmd.clone();
-            genesis_cmd.push_arg("--first");
-            if let Some(ip) = &self.ip {
-                genesis_cmd.push_arg(format!("{}:0", ip));
-            } else {
-                genesis_cmd.push_arg("127.0.0.1:0");
-            }
-
-            // Let's launch genesis node now
-            debug!("Launching genesis node (#1)...");
-            genesis_cmd.run(self.nodes_dir.join("sn-node-genesis"), &[])?;
-
-            thread::sleep(interval_duration);
+            self.run_genesis(&node_cmd)?;
+            thread::sleep(interval);
         }
 
         // Fetch node_conn_info from $HOME/.safe/node/node_connection_info.config.
@@ -119,46 +107,71 @@ impl Launch {
             node_cmd.args()
         );
 
-        let paths =
-            fs::read_dir(&self.nodes_dir).wrap_err("Could not read existing testnet log dir")?;
+        let node_ids = self.node_ids()?;
+        if !node_ids.is_empty() {
+            info!("Launching nodes {:?}", node_ids);
 
-        let existing_nodes_count = paths
-            .collect::<Result<Vec<_>, io::Error>>()
-            .wrap_err("Error collecting testnet log dir")?
-            .len();
-
-        info!("{:?} existing nodes found", existing_nodes_count);
-
-        if existing_nodes_count == 0 {
-            return Err(eyre!("A genesis node could not be found."));
-        }
-
-        let end: usize = if self.add_nodes_to_existing_network {
-            existing_nodes_count + self.num_nodes
-        } else {
-            self.num_nodes
-        };
-
-        // We can now run the rest of the nodes
-        for i in existing_nodes_count..end {
-            let this_node = i + 1;
-
-            if self.add_nodes_to_existing_network {
-                debug!("Adding node #{}...", this_node)
-            } else {
-                debug!("Launching node #{}...", this_node)
-            };
-            node_cmd.run(
-                self.nodes_dir.join(format!("sn-node-{}", this_node)),
-                &genesis_contact_info,
-            )?;
-
-            // We wait for a few secs before launching each new node
-            thread::sleep(interval_duration);
+            for i in node_ids {
+                self.run_node(&node_cmd, i, &genesis_contact_info)?;
+                thread::sleep(interval);
+            }
         }
 
         info!("Done!");
         Ok(())
+    }
+
+    fn run_genesis(&self, node_cmd: &NodeCmd) -> Result<()> {
+        // Set genesis node's command arguments
+        let mut genesis_cmd = node_cmd.clone();
+        genesis_cmd.push_arg("--first");
+        if let Some(ip) = &self.ip {
+            genesis_cmd.push_arg(format!("{}:0", ip));
+        } else {
+            genesis_cmd.push_arg("127.0.0.1:0");
+        }
+
+        // Let's launch genesis node now
+        debug!("Launching genesis node (#1)...");
+        genesis_cmd.run(self.nodes_dir.join("sn-node-genesis"), &[])?;
+
+        Ok(())
+    }
+
+    fn run_node(&self, node_cmd: &NodeCmd, node_idx: usize, contacts: &[SocketAddr]) -> Result<()> {
+        if self.add_nodes_to_existing_network {
+            debug!("Adding node #{}...", node_idx)
+        } else {
+            debug!("Launching node #{}...", node_idx)
+        };
+        node_cmd.run(
+            self.nodes_dir.join(format!("sn-node-{}", node_idx)),
+            contacts,
+        )?;
+
+        Ok(())
+    }
+
+    fn node_ids(&self) -> Result<RangeInclusive<usize>> {
+        let paths =
+            fs::read_dir(&self.nodes_dir).wrap_err("Could not read existing testnet log dir")?;
+
+        let count = paths
+            .collect::<Result<Vec<_>, _>>()
+            .wrap_err("Error collecting testnet log dir")?
+            .len();
+
+        if count == 0 {
+            return Err(eyre!("A genesis node could not be found."));
+        }
+
+        let last_idx: usize = if self.add_nodes_to_existing_network {
+            count + self.num_nodes
+        } else {
+            self.num_nodes
+        };
+
+        Ok(count + 1..=last_idx)
     }
 }
 
