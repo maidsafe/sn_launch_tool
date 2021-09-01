@@ -83,6 +83,17 @@ impl Launch {
     pub fn run(&self) -> Result<()> {
         launch(self)
     }
+
+    fn node_cmd(&self) -> Result<NodeCmd<'_>> {
+        let mut cmd = self.common.node_cmd()?;
+
+        cmd.push_arg("--idle-timeout-msec");
+        cmd.push_arg(self.idle_timeout_msec.to_string());
+        cmd.push_arg("--keep-alive-interval-msec");
+        cmd.push_arg(self.keep_alive_interval_msec.to_string());
+
+        Ok(cmd)
+    }
 }
 
 /// Run a Safe node to join a network
@@ -120,6 +131,31 @@ impl Join {
     /// Join a network with these arguments.
     pub fn run(&self) -> Result<()> {
         join(self)
+    }
+
+    fn node_cmd(&self) -> Result<NodeCmd<'_>> {
+        let mut cmd = self.common.node_cmd()?;
+
+        if let Some(max_capacity) = self.max_capacity {
+            cmd.push_arg("--max-capacity");
+            cmd.push_arg(max_capacity.to_string());
+        }
+
+        if let Some(local_addr) = self.local_addr {
+            cmd.push_arg("--local-addr");
+            cmd.push_arg(local_addr.to_string());
+        }
+
+        if let Some(public_addr) = self.public_addr {
+            cmd.push_arg("--public-addr");
+            cmd.push_arg(public_addr.to_string());
+        }
+
+        if self.clear_data {
+            cmd.push_arg("--clear-data");
+        }
+
+        Ok(cmd)
     }
 }
 
@@ -187,17 +223,12 @@ impl CommonArgs {
 }
 
 fn launch(args: &Launch) -> Result<()> {
-    let mut node_cmd = args.common.node_cmd()?;
+    let node_cmd = args.node_cmd()?;
     node_cmd.print_version()?;
 
     debug!("Network size: {} nodes", args.num_nodes);
 
     let adding_nodes: bool = args.add_nodes_to_existing_network;
-
-    node_cmd.push_arg("--idle-timeout-msec");
-    node_cmd.push_arg(args.idle_timeout_msec.to_string());
-    node_cmd.push_arg("--keep-alive-interval-msec");
-    node_cmd.push_arg(args.keep_alive_interval_msec.to_string());
 
     let addr = if let Some(ref ip) = args.ip {
         format!("{}:0", ip)
@@ -281,27 +312,8 @@ fn launch(args: &Launch) -> Result<()> {
 }
 
 fn join(args: &Join) -> Result<()> {
-    let mut node_cmd = args.common.node_cmd()?;
+    let node_cmd = args.node_cmd()?;
     node_cmd.print_version()?;
-
-    if let Some(max_capacity) = args.max_capacity {
-        node_cmd.push_arg("--max-capacity");
-        node_cmd.push_arg(max_capacity.to_string());
-    }
-
-    if let Some(local_addr) = args.local_addr {
-        node_cmd.push_arg("--local-addr");
-        node_cmd.push_arg(local_addr.to_string());
-    }
-
-    if let Some(public_addr) = args.public_addr {
-        node_cmd.push_arg("--public-addr");
-        node_cmd.push_arg(public_addr.to_string());
-    }
-
-    if args.clear_data {
-        node_cmd.push_arg("--clear-data");
-    }
 
     if args.hard_coded_contacts.is_empty() {
         debug!("Failed to start a node. No contacts nodes provided.");
