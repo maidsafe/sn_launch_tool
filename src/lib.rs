@@ -177,18 +177,9 @@ struct CommonArgs {
 
 impl CommonArgs {
     fn node_cmd(&self) -> Result<NodeCmd> {
-        let mut cmd = NodeCmd {
-            path: self.node_path()?,
-            envs: vec![(
-                OsStr::new("RUST_LOG").into(),
-                match self.rust_log() {
-                    Cow::Borrowed(val) => Cow::Borrowed(val.as_ref()),
-                    Cow::Owned(val) => Cow::Owned(val.into()),
-                },
-            )],
-            args: Default::default(),
-        };
+        let mut cmd = NodeCmd::new(self.node_path()?);
 
+        cmd.push_env("RUST_LOG", self.rust_log());
         cmd.push_arg(
             // We need a minimum of INFO level for nodes verbosity,
             // since the genesis node logs the contact info at INFO level
@@ -198,16 +189,16 @@ impl CommonArgs {
         Ok(cmd)
     }
 
-    fn node_path(&self) -> Result<Cow<'_, OsStr>> {
-        match &self.node_path.as_deref() {
-            Some(p) => Ok(p.as_os_str().into()),
+    fn node_path(&self) -> Result<Cow<'_, Path>> {
+        match self.node_path.as_deref() {
+            Some(p) => Ok(p.into()),
             None => {
                 let mut path =
                     dirs_next::home_dir().ok_or_else(|| eyre!("Home directory not found"))?;
 
                 path.push(".safe/node");
                 path.push(SN_NODE_EXECUTABLE);
-                Ok(path.into_os_string().into())
+                Ok(path.into())
             }
         }
     }
@@ -359,8 +350,34 @@ struct NodeCmd<'a> {
 }
 
 impl<'a> NodeCmd<'a> {
+    fn new<P, Pb>(path: P) -> Self
+    where
+        P: Into<Cow<'a, Pb>>,
+        Pb: AsRef<OsStr> + ToOwned + ?Sized + 'a,
+        Pb::Owned: Into<OsString>,
+    {
+        Self {
+            path: into_cow_os_str(path),
+            envs: Default::default(),
+            args: Default::default(),
+        }
+    }
+
     fn path(&self) -> &Path {
         Path::new(&self.path)
+    }
+
+    fn push_env<K, Kb, V, Vb>(&mut self, key: K, value: V)
+    where
+        K: Into<Cow<'a, Kb>>,
+        Kb: AsRef<OsStr> + ToOwned + ?Sized + 'a,
+        Kb::Owned: Into<OsString>,
+        V: Into<Cow<'a, Vb>>,
+        Vb: AsRef<OsStr> + ToOwned + ?Sized + 'a,
+        Vb::Owned: Into<OsString>,
+    {
+        self.envs
+            .push((into_cow_os_str(key), into_cow_os_str(value)));
     }
 
     fn push_arg<A, B>(&mut self, arg: A)
@@ -448,10 +465,7 @@ impl<'a> NodeArgs<'a> {
         B: AsRef<OsStr> + ToOwned + ?Sized + 'a,
         B::Owned: Into<OsString>,
     {
-        self.0.push(match arg.into() {
-            Cow::Borrowed(arg) => Cow::Borrowed(arg.as_ref()),
-            Cow::Owned(arg) => Cow::Owned(arg.into()),
-        });
+        self.0.push(into_cow_os_str(arg));
     }
 }
 
@@ -517,4 +531,16 @@ fn read_genesis_conn_info() -> Result<String> {
     debug!("Genesis node contact info: {}", conn_info_str);
 
     Ok(conn_info_str)
+}
+
+fn into_cow_os_str<'a, V, Vb>(val: V) -> Cow<'a, OsStr>
+where
+    V: Into<Cow<'a, Vb>>,
+    Vb: AsRef<OsStr> + ToOwned + ?Sized + 'a,
+    Vb::Owned: Into<OsString>,
+{
+    match val.into() {
+        Cow::Borrowed(val) => val.as_ref().into(),
+        Cow::Owned(val) => val.into().into(),
+    }
 }
