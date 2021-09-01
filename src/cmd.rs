@@ -9,7 +9,7 @@ use std::{
     thread,
     time::Duration,
 };
-use tracing::{debug, trace};
+use tracing::trace;
 
 const NODE_LIVENESS_TIMEOUT: Duration = Duration::from_secs(2);
 
@@ -34,7 +34,7 @@ impl<'a> NodeCmd<'a> {
         }
     }
 
-    fn path(&self) -> &Path {
+    pub(crate) fn path(&self) -> &Path {
         Path::new(&self.path)
     }
 
@@ -64,7 +64,7 @@ impl<'a> NodeCmd<'a> {
         self.args.push(arg);
     }
 
-    pub(crate) fn print_version(&self) -> Result<()> {
+    pub(crate) fn version(&self) -> Result<String> {
         let version = Command::new(&self.path)
             .args(&["-V"])
             .output()
@@ -90,13 +90,7 @@ impl<'a> NodeCmd<'a> {
                 )
             })?;
 
-        debug!(
-            "Using sn_node @ {} from {}",
-            String::from_utf8_lossy(&version).trim(),
-            self.path().display()
-        );
-
-        Ok(())
+        Ok(String::from_utf8_lossy(&version).trim().to_string())
     }
 
     pub(crate) fn run(&self, node_dir: impl AsRef<Path>, contacts: &[SocketAddr]) -> Result<()> {

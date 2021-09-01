@@ -83,7 +83,6 @@ impl Launch {
     /// Launch a network with these arguments.
     pub fn run(&self) -> Result<()> {
         let mut node_cmd = self.common.node_cmd()?;
-        node_cmd.print_version()?;
 
         node_cmd.push_arg("--idle-timeout-msec");
         node_cmd.push_arg(self.idle_timeout_msec.to_string());
@@ -210,7 +209,6 @@ impl Join {
     /// Join a network with these arguments.
     pub fn run(&self) -> Result<()> {
         let mut node_cmd = self.common.node_cmd()?;
-        node_cmd.print_version()?;
 
         if let Some(max_capacity) = self.max_capacity {
             node_cmd.push_arg("--max-capacity");
@@ -291,6 +289,12 @@ impl CommonArgs {
             // We need a minimum of INFO level for nodes verbosity,
             // since the genesis node logs the contact info at INFO level
             format!("-{}", "v".repeat(2 + self.nodes_verbosity as usize)),
+        );
+
+        debug!(
+            "Using sn_node @ {} from {}",
+            cmd.version()?,
+            cmd.path().display()
         );
 
         Ok(cmd)
