@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.4.0](https://github.com/maidsafe/sn_launch_tool/compare/v0.3.2...v0.4.0) (2021-09-01)
+
+
+### ⚠ BREAKING CHANGES
+
+* The `verbosity` argument has been removed.
+* The public functions `run`, `run_with`, `join`, and
+`join_with` all now return `eyre::Result<()>`, rather than `Result<(),
+String>`.
+
+* Use `eyre` for errors ([b944a92](https://github.com/maidsafe/sn_launch_tool/commit/b944a92783646f1335a6ddf3cec2de5fbc244477))
+* Use `tracing` for all messages ([068eedd](https://github.com/maidsafe/sn_launch_tool/commit/068eedd73a51abdb00a411526604167508ee6868))
+
 ### [0.3.2](https://github.com/maidsafe/sn_launch_tool/compare/v0.3.1...v0.3.2) (2021-07-19)
 
 
