@@ -8,13 +8,13 @@
 // Software.
 
 use eyre::Result;
-use log::debug;
 use sn_launch_tool::run;
 pub use sn_launch_tool::run_with;
+use tracing::debug;
 
 fn main() -> Result<()> {
     color_eyre::install()?;
-    env_logger::init();
+    tracing_subscriber::fmt::init();
 
     debug!("Launching Safe nodes...");
 

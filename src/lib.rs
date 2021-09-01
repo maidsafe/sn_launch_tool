@@ -8,13 +8,12 @@
 // Software.
 
 use eyre::{eyre, Result, WrapErr};
-use log::debug;
 use std::fs;
 use std::{
     collections::HashSet,
     env,
     fs::File,
-    io::{self, BufReader, Write},
+    io::{self, BufReader},
     net::SocketAddr,
     path::{Path, PathBuf},
     process::{Command, Stdio},
@@ -22,6 +21,7 @@ use std::{
     time::Duration,
 };
 use structopt::StructOpt;
+use tracing::{debug, info, trace};
 
 #[cfg(not(target_os = "windows"))]
 const SN_NODE_EXECUTABLE: &str = "sn_node";
@@ -40,10 +40,6 @@ const DEFAULT_RUST_LOG: &str = "safe_network=debug";
 #[derive(StructOpt, Debug)]
 #[structopt(name = "sn_launch_tool")]
 struct CmdArgs {
-    /// Verbosity level for this tool
-    #[structopt(short = "v", long, parse(from_occurrences))]
-    verbosity: u8,
-
     /// Path where to locate sn_node/sn_node.exe binary. The SN_NODE_PATH env var can be also used to set the path
     #[structopt(short = "p", long, env = "SN_NODE_PATH")]
     node_path: Option<PathBuf>,
@@ -93,10 +89,6 @@ struct CmdArgs {
 #[derive(StructOpt, Debug)]
 #[structopt(name = "sn_launch_tool-join")]
 struct JoinCmdArgs {
-    /// Verbosity level for this tool
-    #[structopt(short = "v", long, parse(from_occurrences))]
-    verbosity: u8,
-
     /// Path where to locate sn_node/sn_node.exe binary. The SN_NODE_PATH env var can be also used to set the path
     #[structopt(short = "p", long, env = "SN_NODE_PATH")]
     node_path: Option<PathBuf>,
@@ -149,7 +141,7 @@ pub fn join_with(cmd_args: Option<&[&str]>) -> Result<()> {
         Some(cmd_args) => JoinCmdArgs::from_iter_safe(cmd_args)?,
     };
 
-    let node_bin_path = get_node_bin_path(args.node_path, args.verbosity)?;
+    let node_bin_path = get_node_bin_path(args.node_path)?;
 
     let mut common_args: Vec<&str> = vec![];
 
@@ -184,11 +176,7 @@ pub fn join_with(cmd_args: Option<&[&str]>) -> Result<()> {
     }
 
     if args.hard_coded_contacts.is_empty() {
-        let msg = "Failed to start a node. No contacts nodes provided.";
-        if args.verbosity > 0 {
-            println!("{}", msg);
-        }
-        debug!("{}", msg);
+        debug!("Failed to start a node. No contacts nodes provided.");
         return Ok(());
     }
 
@@ -203,32 +191,21 @@ pub fn join_with(cmd_args: Option<&[&str]>) -> Result<()> {
 
     let rust_log = get_rust_log(args.rust_log);
 
-    let msg = format!("Node to be started with contact(s): {}", conn_info_str);
-    if args.verbosity > 0 {
-        println!("{}", msg);
-    }
-    debug!("{}", msg);
+    debug!("Node to be started with contact(s): {}", conn_info_str);
 
     // Construct current node's command arguments
     let node_dir = args.nodes_dir.display().to_string();
 
     let current_node_args = build_node_args(common_args.clone(), &node_dir, Some(&conn_info_str));
 
-    let msg = "Launching node...";
-    if args.verbosity > 0 {
-        println!("{}", msg);
-    }
-    debug!("{}", msg);
-    run_node_cmd(&node_bin_path, &current_node_args, args.verbosity, rust_log)?;
+    debug!("Launching node...");
+    run_node_cmd(&node_bin_path, &current_node_args, rust_log)?;
 
-    let msg = format!(
+    debug!(
         "Node logs are being stored at: {}/sn_node.log<DATETIME>",
         node_dir
     );
-    if args.verbosity > 0 {
-        println!("{}", msg);
-        println!("(Note that log files are rotated hourly, and subsequent files will be named sn_node.log<NEW DATE TINE>.");
-    }
+    debug!("(Note that log files are rotated hourly, and subsequent files will be named sn_node.log<NEW DATE TINE>.");
 
     Ok(())
 }
@@ -240,13 +217,9 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<()> {
         Some(cmd_args) => CmdArgs::from_iter_safe(cmd_args)?,
     };
 
-    let node_bin_path = get_node_bin_path(args.node_path, args.verbosity)?;
+    let node_bin_path = get_node_bin_path(args.node_path)?;
 
-    let msg = format!("Network size: {} nodes", args.num_nodes);
-    if args.verbosity > 0 {
-        println!("{}", msg);
-    }
-    debug!("{}", msg);
+    debug!("Network size: {} nodes", args.num_nodes);
 
     let mut common_args: Vec<&str> = vec![];
 
@@ -285,30 +258,19 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<()> {
             build_node_args(genesis_args, &genesis_node_dir_str, None /* genesis */);
 
         // Let's launch genesis node now
-        let msg = "Launching genesis node (#1)...";
-        if args.verbosity > 0 {
-            println!("{}", msg);
-        }
-        debug!("{}", msg);
-        run_node_cmd(
-            &node_bin_path,
-            &genesis_node_args,
-            args.verbosity,
-            rust_log.clone(),
-        )?;
+        debug!("Launching genesis node (#1)...");
+        run_node_cmd(&node_bin_path, &genesis_node_args, rust_log.clone())?;
 
         thread::sleep(interval_duration);
     }
 
     // Fetch node_conn_info from $HOME/.safe/node/node_connection_info.config.
-    let genesis_contact_info = read_genesis_conn_info(args.verbosity)?;
+    let genesis_contact_info = read_genesis_conn_info()?;
 
-    if args.verbosity > 0 {
-        println!(
-            "Common node args for launching the network: {:?}",
-            common_args
-        );
-    }
+    debug!(
+        "Common node args for launching the network: {:?}",
+        common_args
+    );
 
     let paths =
         fs::read_dir(&args.nodes_dir).wrap_err("Could not read existing testnet log dir")?;
@@ -318,7 +280,7 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<()> {
         .wrap_err("Error collecting testnet log dir")?
         .len();
 
-    println!("{:?} existing nodes found", existing_nodes_count);
+    info!("{:?} existing nodes found", existing_nodes_count);
 
     if existing_nodes_count == 0 {
         return Err(eyre!("A genesis node could not be found."));
@@ -343,66 +305,50 @@ pub fn run_with(cmd_args: Option<&[&str]>) -> Result<()> {
         let current_node_args =
             build_node_args(common_args.clone(), &node_dir, Some(&genesis_contact_info));
 
-        let msg = if adding_nodes {
-            format!("Adding node #{}...", this_node)
+        if adding_nodes {
+            debug!("Adding node #{}...", this_node)
         } else {
-            format!("Launching node #{}...", this_node)
+            debug!("Launching node #{}...", this_node)
         };
-        if args.verbosity > 0 {
-            println!("{}", msg);
-        }
-        debug!("{}", msg);
-        run_node_cmd(
-            &node_bin_path,
-            &current_node_args,
-            args.verbosity,
-            rust_log.clone(),
-        )?;
+        run_node_cmd(&node_bin_path, &current_node_args, rust_log.clone())?;
 
         // We wait for a few secs before launching each new node
         thread::sleep(interval_duration);
     }
 
-    println!("Done!");
+    info!("Done!");
     Ok(())
 }
 
-fn get_node_bin_path(node_path: Option<PathBuf>, verbosity: u8) -> Result<PathBuf> {
+fn get_node_bin_path(node_path: Option<PathBuf>) -> Result<PathBuf> {
     let node_bin_path = match node_path {
         Some(p) => p,
         None => {
             let mut path =
                 dirs_next::home_dir().ok_or_else(|| eyre!("Home directory not found"))?;
 
-            path.push(".safe");
-            path.push("node");
+            path.push(".safe/node");
             path.push(SN_NODE_EXECUTABLE);
             path
         }
     };
 
-    let msg = format!(
-        "Launching with node executable from: {}",
+    let version = Command::new(&node_bin_path)
+        .args(&["-V"])
+        .output()
+        .wrap_err_with(|| {
+            format!(
+                "Failed to run '{}' with args '{:?}'",
+                node_bin_path.display(),
+                &["-V"]
+            )
+        })?;
+
+    debug!(
+        "Using sn_node @ {} from {}",
+        String::from_utf8_lossy(&version).trim(),
         node_bin_path.display()
     );
-    debug!("{}", msg);
-
-    if verbosity > 0 {
-        println!("{}", msg);
-
-        // let's print version information now
-        let output = Command::new(&node_bin_path)
-            .args(&["-V"])
-            .output()
-            .wrap_err_with(|| {
-                format!("Failed to run '{}' with args '-V'", node_bin_path.display())
-            })?;
-
-        print!("Version: ");
-        io::stdout()
-            .write_all(&output.stdout)
-            .wrap_err("Failed to output version information")?;
-    }
 
     Ok(node_bin_path)
 }
@@ -425,13 +371,9 @@ fn build_node_args<'a>(
     base_args
 }
 
-fn run_node_cmd(node_path: &Path, args: &[&str], verbosity: u8, rust_log: String) -> Result<()> {
+fn run_node_cmd(node_path: &Path, args: &[&str], rust_log: String) -> Result<()> {
     let path_str = node_path.display().to_string();
-    let msg = format!("Running '{}' with args {:?} ...", path_str, args);
-    if verbosity > 1 {
-        println!("{}", msg);
-    }
-    debug!("{}", msg);
+    trace!("Running '{}' with args {:?} ...", path_str, args);
 
     let _child = Command::new(&path_str)
         .args(args)
@@ -444,7 +386,7 @@ fn run_node_cmd(node_path: &Path, args: &[&str], verbosity: u8, rust_log: String
     Ok(())
 }
 
-fn read_genesis_conn_info(verbosity: u8) -> Result<String> {
+fn read_genesis_conn_info() -> Result<String> {
     let home_dir = dirs_next::home_dir().ok_or_else(|| eyre!("Home directory not found"))?;
     let conn_info_path = home_dir.join(GENESIS_CONN_INFO_FILEPATH);
 
@@ -468,13 +410,8 @@ fn read_genesis_conn_info(verbosity: u8) -> Result<String> {
     let conn_info_str = serde_json::to_string(&contacts)
         .wrap_err("Failed to generate genesis contacts list parameter")?;
 
-    let msg = format!("Genesis node contact info: {}", conn_info_str);
-    if verbosity > 0 {
-        println!("Connection info directory: {}", conn_info_path.display());
-        println!("{}", msg);
-    }
-    debug!("{}", msg);
     debug!("Connection info directory: {}", conn_info_path.display());
+    debug!("Genesis node contact info: {}", conn_info_str);
 
     Ok(conn_info_str)
 }
@@ -487,6 +424,6 @@ fn get_rust_log(rust_log_from_args: Option<String>) -> String {
             Err(_) => DEFAULT_RUST_LOG.to_string(),
         },
     };
-    println!("Using RUST_LOG '{}'", rust_log);
+    info!("Using RUST_LOG '{}'", rust_log);
     rust_log
 }
