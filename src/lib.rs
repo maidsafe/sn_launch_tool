@@ -151,6 +151,16 @@ impl CommonArgs {
             }
         }
     }
+
+    fn rust_log(&self) -> Cow<'_, str> {
+        match self.rust_log.as_deref() {
+            Some(rust_log_flag) => rust_log_flag.into(),
+            None => match env::var("RUST_LOG") {
+                Ok(rust_log_env) => rust_log_env.into(),
+                Err(_) => DEFAULT_RUST_LOG.into(),
+            },
+        }
+    }
 }
 
 fn launch(args: &Launch) -> Result<()> {
@@ -181,7 +191,8 @@ fn launch(args: &Launch) -> Result<()> {
         "127.0.0.1:0".to_string()
     };
 
-    let rust_log = get_rust_log(args.common.rust_log.as_deref());
+    let rust_log = args.common.rust_log();
+    info!("Using RUST_LOG '{}'", rust_log);
     // Get port number of genesis node to pass it as hard-coded contact to the other nodes
     let interval_duration = Duration::from_secs(args.interval);
 
@@ -197,7 +208,7 @@ fn launch(args: &Launch) -> Result<()> {
 
         // Let's launch genesis node now
         debug!("Launching genesis node (#1)...");
-        run_node_cmd(&node_path, &genesis_node_args, rust_log.clone())?;
+        run_node_cmd(&node_path, &genesis_node_args, &rust_log)?;
 
         thread::sleep(interval_duration);
     }
@@ -251,7 +262,7 @@ fn launch(args: &Launch) -> Result<()> {
         } else {
             debug!("Launching node #{}...", this_node)
         };
-        run_node_cmd(&node_path, &current_node_args, rust_log.clone())?;
+        run_node_cmd(&node_path, &current_node_args, &rust_log)?;
 
         // We wait for a few secs before launching each new node
         thread::sleep(interval_duration);
@@ -311,7 +322,8 @@ fn join(args: &Join) -> Result<()> {
     let conn_info_str = serde_json::to_string(&contacts)
         .wrap_err("Failed to generate genesis contacts list parameter")?;
 
-    let rust_log = get_rust_log(args.common.rust_log.as_deref());
+    let rust_log = args.common.rust_log();
+    info!("Using RUST_LOG '{}'", rust_log);
 
     debug!("Node to be started with contact(s): {}", conn_info_str);
 
@@ -321,7 +333,7 @@ fn join(args: &Join) -> Result<()> {
     let current_node_args = build_node_args(common_args.clone(), &node_dir, Some(&conn_info_str));
 
     debug!("Launching node...");
-    run_node_cmd(&node_path, &current_node_args, rust_log)?;
+    run_node_cmd(&node_path, &current_node_args, &rust_log)?;
 
     debug!(
         "Node logs are being stored at: {}/sn_node.log<DATETIME>",
@@ -385,7 +397,7 @@ fn build_node_args<'a>(
     base_args
 }
 
-fn run_node_cmd(node_path: &Path, args: &[&str], rust_log: String) -> Result<()> {
+fn run_node_cmd(node_path: &Path, args: &[&str], rust_log: &str) -> Result<()> {
     let path_str = node_path.display().to_string();
     trace!("Running '{}' with args {:?} ...", path_str, args);
 
@@ -439,16 +451,4 @@ fn read_genesis_conn_info() -> Result<String> {
     debug!("Genesis node contact info: {}", conn_info_str);
 
     Ok(conn_info_str)
-}
-
-fn get_rust_log(rust_log_from_args: Option<&str>) -> String {
-    let rust_log = match rust_log_from_args {
-        Some(rust_log_flag) => rust_log_flag.to_string(),
-        None => match env::var("RUST_LOG") {
-            Ok(rust_log_env) => rust_log_env,
-            Err(_) => DEFAULT_RUST_LOG.to_string(),
-        },
-    };
-    info!("Using RUST_LOG '{}'", rust_log);
-    rust_log
 }
