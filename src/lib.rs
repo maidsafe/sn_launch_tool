@@ -89,6 +89,10 @@ impl Launch {
         node_cmd.push_arg("--keep-alive-interval-msec");
         node_cmd.push_arg(self.keep_alive_interval_msec.to_string());
 
+        if self.is_local {
+            node_cmd.push_arg("--skip-igd");
+        }
+
         debug!("Network size: {} nodes", self.num_nodes);
 
         let interval = Duration::from_secs(self.interval);
