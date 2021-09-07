@@ -103,7 +103,7 @@ impl Launch {
         }
 
         // Fetch node_conn_info from $HOME/.safe/node/node_connection_info.config.
-        let genesis_contact_info = read_genesis_conn_info()?;
+        let (genesis_contact_info, genesis_key) = read_genesis_conn_info()?;
 
         debug!(
             "Common node args for launching the network: {:?}",
@@ -115,7 +115,7 @@ impl Launch {
             info!("Launching nodes {:?}", node_ids);
 
             for i in node_ids {
-                self.run_node(&node_cmd, i, &genesis_contact_info)?;
+                self.run_node(&node_cmd, i, &genesis_contact_info, genesis_key.as_ref())?;
                 thread::sleep(interval);
             }
         }
@@ -136,12 +136,18 @@ impl Launch {
 
         // Let's launch genesis node now
         debug!("Launching genesis node (#1)...");
-        genesis_cmd.run(self.nodes_dir.join("sn-node-genesis"), &[])?;
+        genesis_cmd.run(self.nodes_dir.join("sn-node-genesis"), &[], None)?;
 
         Ok(())
     }
 
-    fn run_node(&self, node_cmd: &NodeCmd, node_idx: usize, contacts: &[SocketAddr]) -> Result<()> {
+    fn run_node(
+        &self,
+        node_cmd: &NodeCmd,
+        node_idx: usize,
+        contacts: &[SocketAddr],
+        genesis_key_str: &str,
+    ) -> Result<()> {
         if self.add_nodes_to_existing_network {
             debug!("Adding node #{}...", node_idx)
         } else {
@@ -150,6 +156,7 @@ impl Launch {
         node_cmd.run(
             self.nodes_dir.join(format!("sn-node-{}", node_idx)),
             contacts,
+            Some(genesis_key_str),
         )?;
 
         Ok(())
@@ -195,6 +202,10 @@ pub struct Join {
     /// List of node addresses to bootstrap to for joining
     #[structopt(short = "h", long)]
     hard_coded_contacts: Vec<SocketAddr>,
+
+    /// Genesis key of the network to join
+    #[structopt(short = "g", long)]
+    genesis_key: String,
 
     /// Local network address for the node, eg 192.168.1.100:12000
     #[structopt(long)]
@@ -244,7 +255,11 @@ impl Join {
         );
 
         debug!("Launching node...");
-        node_cmd.run(&self.nodes_dir, &self.hard_coded_contacts)?;
+        node_cmd.run(
+            &self.nodes_dir,
+            &self.hard_coded_contacts,
+            Some(&self.genesis_key),
+        )?;
 
         debug!(
             "Node logs are being stored at: {}/sn_node.log<DATETIME>",
@@ -315,7 +330,7 @@ impl CommonArgs {
     }
 }
 
-fn read_genesis_conn_info() -> Result<Vec<SocketAddr>> {
+fn read_genesis_conn_info() -> Result<(Vec<SocketAddr>, String)> {
     let home_dir = dirs_next::home_dir().ok_or_else(|| eyre!("Home directory not found"))?;
     let conn_info_path = home_dir.join(GENESIS_CONN_INFO_FILEPATH);
 
@@ -326,7 +341,7 @@ fn read_genesis_conn_info() -> Result<Vec<SocketAddr>> {
         )
     })?;
     let reader = BufReader::new(file);
-    let hard_coded_contacts: HashSet<SocketAddr> =
+    let (genesis_key_str, hard_coded_contacts): (String, HashSet<SocketAddr>) =
         serde_json::from_reader(reader).wrap_err_with(|| {
             format!(
                 "Failed to parse content of node connection information file at '{}'",
@@ -338,6 +353,7 @@ fn read_genesis_conn_info() -> Result<Vec<SocketAddr>> {
 
     debug!("Connection info directory: {}", conn_info_path.display());
     debug!("Genesis node contact info: {:?}", contacts);
+    debug!("Network's genesis key: {}", genesis_key_str);
 
-    Ok(contacts)
+    Ok((contacts, genesis_key_str))
 }
