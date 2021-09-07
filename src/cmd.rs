@@ -93,7 +93,12 @@ impl<'a> NodeCmd<'a> {
         Ok(String::from_utf8_lossy(&version).trim().to_string())
     }
 
-    pub(crate) fn run(&self, node_dir: impl AsRef<Path>, contacts: &[SocketAddr]) -> Result<()> {
+    pub(crate) fn run(
+        &self,
+        node_dir: impl AsRef<Path>,
+        contacts: &[SocketAddr],
+        genesis_key: Option<&str>,
+    ) -> Result<()> {
         let path_str = self.path().display().to_string();
         trace!("Running '{}' with args {:?} ...", path_str, self.args);
 
@@ -102,6 +107,12 @@ impl<'a> NodeCmd<'a> {
         extra_args.push(node_dir.as_ref());
         extra_args.push("--log-dir");
         extra_args.push(node_dir.as_ref());
+
+        if let Some(genesis_key_str) = genesis_key {
+            trace!("Network's genesis key: {}", genesis_key_str);
+            extra_args.push("--genesis-key");
+            extra_args.push(genesis_key_str);
+        }
 
         if !contacts.is_empty() {
             extra_args.push("--hard-coded-contacts");
