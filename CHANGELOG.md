@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.7.0](https://github.com/maidsafe/sn_launch_tool/compare/v0.6.0...v0.7.0) (2021-09-09)
+
+
+### ⚠ BREAKING CHANGES
+
+* For genesis nodes, `sn_node` will now be invoked with
+`--first` without a value, which is not compatible with older versions
+of `sn_node`.
+
+* Update for changes to `sn_node` CLI ([b7d35f6](https://github.com/maidsafe/sn_launch_tool/commit/b7d35f648effe9fe6272b747e4e267c9b0b8423f))
+
 ## [0.6.0](https://github.com/maidsafe/sn_launch_tool/compare/v0.5.0...v0.6.0) (2021-09-09)
 
 
