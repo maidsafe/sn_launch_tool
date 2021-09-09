@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.6.0](https://github.com/maidsafe/sn_launch_tool/compare/v0.5.0...v0.6.0) (2021-09-09)
+
+
+### ⚠ BREAKING CHANGES
+
+* this now expects the contacts info file to contain both the peer addreses and genesis key in hex format.
+
+### Features
+
+* read genesis key from contacts info file and pass it as arg to joining nodes ([ffa48b3](https://github.com/maidsafe/sn_launch_tool/commit/ffa48b30cf734144398640b3be29e37e15c50261))
+
 ## [0.5.0](https://github.com/maidsafe/sn_launch_tool/compare/v0.4.0...v0.5.0) (2021-09-02)
 
 
