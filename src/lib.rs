@@ -93,6 +93,14 @@ impl Launch {
             node_cmd.push_arg("--skip-igd");
         }
 
+        if let Some(ip) = &self.ip {
+            node_cmd.push_arg("--local-addr");
+            node_cmd.push_arg(format!("{}:0", ip));
+        } else if self.is_local {
+            node_cmd.push_arg("--local-addr");
+            node_cmd.push_arg("127.0.0.1:0");
+        }
+
         debug!("Network size: {} nodes", self.num_nodes);
 
         let interval = Duration::from_secs(self.interval);
@@ -128,11 +136,6 @@ impl Launch {
         // Set genesis node's command arguments
         let mut genesis_cmd = node_cmd.clone();
         genesis_cmd.push_arg("--first");
-        if let Some(ip) = &self.ip {
-            genesis_cmd.push_arg(format!("{}:0", ip));
-        } else {
-            genesis_cmd.push_arg("127.0.0.1:0");
-        }
 
         // Let's launch genesis node now
         debug!("Launching genesis node (#1)...");
