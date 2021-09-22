@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.8.0](https://github.com/maidsafe/sn_launch_tool/compare/v0.7.0...v0.8.0) (2021-09-22)
+
+
+### ⚠ BREAKING CHANGES
+
+* launch args interval is now in millis, and default is 100
+
+### Features
+
+* use millis for interval ([6763063](https://github.com/maidsafe/sn_launch_tool/commit/6763063100b1bde7f75e6b8f4818d46ecb9de4e2))
+
 ## [0.7.0](https://github.com/maidsafe/sn_launch_tool/compare/v0.6.0...v0.7.0) (2021-09-09)
 
 
