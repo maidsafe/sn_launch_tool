@@ -46,8 +46,8 @@ pub struct Launch {
     #[structopt(flatten)]
     common: CommonArgs,
 
-    /// Interval in seconds between launching each of the nodes
-    #[structopt(short = "i", long, default_value = "1")]
+    /// Interval in milliseconds between launching each of the nodes
+    #[structopt(short = "i", long, default_value = "100")]
     interval: u64,
 
     /// Interval in seconds before deeming a peer to have timed out
@@ -103,7 +103,7 @@ impl Launch {
 
         debug!("Network size: {} nodes", self.num_nodes);
 
-        let interval = Duration::from_secs(self.interval);
+        let interval = Duration::from_millis(self.interval);
 
         if !self.add_nodes_to_existing_network {
             self.run_genesis(&node_cmd)?;
