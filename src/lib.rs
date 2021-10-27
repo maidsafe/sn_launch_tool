@@ -55,8 +55,8 @@ pub struct Launch {
     idle_timeout_msec: u64,
 
     /// Interval in seconds between qp2p keep alive messages
-    #[structopt(long = "keep-alive-interval-msec", default_value = "4000")]
-    keep_alive_interval_msec: u64,
+    #[structopt(long = "keep-alive-interval-msec")]
+    keep_alive_interval_msec: Option<u64>,
 
     /// Path where the output directories for all the nodes are written
     #[structopt(short = "d", long, default_value = "./nodes")]
@@ -86,8 +86,11 @@ impl Launch {
 
         node_cmd.push_arg("--idle-timeout-msec");
         node_cmd.push_arg(self.idle_timeout_msec.to_string());
-        node_cmd.push_arg("--keep-alive-interval-msec");
-        node_cmd.push_arg(self.keep_alive_interval_msec.to_string());
+
+        if let Some(keep_alive_interval_msec) = self.keep_alive_interval_msec {
+            node_cmd.push_arg("--keep-alive-interval-msec");
+            node_cmd.push_arg(keep_alive_interval_msec.to_string());
+        }
 
         if self.is_local {
             node_cmd.push_arg("--skip-igd");
