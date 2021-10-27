@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.9.0](https://github.com/maidsafe/sn_launch_tool/compare/v0.8.1...v0.9.0) (2021-10-27)
+
+
+### ⚠ BREAKING CHANGES
+
+* The default value for `--keep-alive-interval-msec` if
+unspecified has changed to `None`, which will not pass any flag to
+`sn_node`, meaning the upstream default will apply.
+
+* don't specify keep-alive-interval by default ([aad3826](https://github.com/maidsafe/sn_launch_tool/commit/aad3826459da234e43199c90f90edeabdcb04e59))
+
 ### [0.8.1](https://github.com/maidsafe/sn_launch_tool/compare/v0.8.0...v0.8.1) (2021-10-26)
 
 ## [0.8.0](https://github.com/maidsafe/sn_launch_tool/compare/v0.7.0...v0.8.0) (2021-09-22)
