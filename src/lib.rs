@@ -290,6 +290,10 @@ struct CommonArgs {
     /// RUST_LOG env var value to launch the nodes with.
     #[structopt(short = "l", long)]
     rust_log: Option<String>,
+
+    /// Output logs in json format for easier processing.
+    #[structopt(long)]
+    json_logs: bool,
 }
 
 impl CommonArgs {
@@ -315,6 +319,10 @@ impl CommonArgs {
             // since the genesis node logs the contact info at INFO level
             format!("-{}", "v".repeat(2 + self.nodes_verbosity as usize)),
         );
+
+        if self.json_logs {
+            cmd.push_arg("--json-logs");
+        }
 
         debug!(
             "Using sn_node @ {} from {}",
