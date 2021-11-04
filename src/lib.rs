@@ -73,10 +73,6 @@ pub struct Launch {
     /// IP used to launch the nodes with.
     #[structopt(long = "add")]
     add_nodes_to_existing_network: bool,
-
-    /// Run the section locally.
-    #[structopt(long = "local")]
-    is_local: bool,
 }
 
 impl Launch {
@@ -92,14 +88,14 @@ impl Launch {
             node_cmd.push_arg(keep_alive_interval_msec.to_string());
         }
 
-        if self.is_local {
+        if self.common.is_local {
             node_cmd.push_arg("--skip-igd");
         }
 
         if let Some(ip) = &self.ip {
             node_cmd.push_arg("--local-addr");
             node_cmd.push_arg(format!("{}:0", ip));
-        } else if self.is_local {
+        } else if self.common.is_local {
             node_cmd.push_arg("--local-addr");
             node_cmd.push_arg("127.0.0.1:0");
         }
@@ -236,9 +232,16 @@ impl Join {
             node_cmd.push_arg(max_capacity.to_string());
         }
 
+        if self.common.is_local {
+            node_cmd.push_arg("--skip-igd");
+        }
+
         if let Some(local_addr) = self.local_addr {
             node_cmd.push_arg("--local-addr");
             node_cmd.push_arg(local_addr.to_string());
+        } else if self.common.is_local {
+            node_cmd.push_arg("--local-addr");
+            node_cmd.push_arg("127.0.0.1:0");
         }
 
         if let Some(public_addr) = self.public_addr {
@@ -294,6 +297,10 @@ struct CommonArgs {
     /// Output logs in json format for easier processing.
     #[structopt(long)]
     json_logs: bool,
+
+    /// Run the section locally.
+    #[structopt(long = "local")]
+    is_local: bool,
 }
 
 impl CommonArgs {
