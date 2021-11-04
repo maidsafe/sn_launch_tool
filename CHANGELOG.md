@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.9.2](https://github.com/maidsafe/sn_launch_tool/compare/v0.9.1...v0.9.2) (2021-11-04)
+
+
+### Features
+
+* provide a `--local` flag for joining network ([d48edfc](https://github.com/maidsafe/sn_launch_tool/commit/d48edfc138554905279480acca03d9fc309a26ce))
+
 ### [0.9.1](https://github.com/maidsafe/sn_launch_tool/compare/v0.9.0...v0.9.1) (2021-11-04)
 
 
