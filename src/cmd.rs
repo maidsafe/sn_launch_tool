@@ -134,7 +134,7 @@ impl<'a> NodeCmd<'a> {
                 // this looks like a no-op but really converts `&(_, _)` into `(_, _)`
                 |(key, value)| (key, value),
             ))
-            .stdout(Stdio::null())
+            .stdout(Stdio::inherit())
             .stderr(Stdio::inherit())
             .spawn()
             .map_err(|error| eyre!(error))
