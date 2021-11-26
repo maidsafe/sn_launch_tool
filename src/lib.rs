@@ -89,7 +89,7 @@ impl Launch {
         }
 
         if self.common.is_local {
-            node_cmd.push_arg("--skip-igd");
+            node_cmd.push_arg("--skip-auto-port-forwarding");
         }
 
         if let Some(ip) = &self.ip {
@@ -220,6 +220,11 @@ pub struct Join {
     /// Clear data directory created by a previous node run
     #[structopt(long = "clear-data")]
     clear_data: bool,
+
+    /// Use this flag to skip automated port forwarding if you are having trouble joining a remote
+    /// network. You can then setup 'manual' port forwarding on your router.
+    #[structopt(long)]
+    skip_auto_port_forwarding: bool,
 }
 
 impl Join {
@@ -232,8 +237,8 @@ impl Join {
             node_cmd.push_arg(max_capacity.to_string());
         }
 
-        if self.common.is_local {
-            node_cmd.push_arg("--skip-igd");
+        if self.common.is_local || self.skip_auto_port_forwarding {
+            node_cmd.push_arg("--skip-auto-port-forwarding");
         }
 
         if let Some(local_addr) = self.local_addr {
