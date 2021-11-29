@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.9.4](https://github.com/maidsafe/sn_launch_tool/compare/v0.9.3...v0.9.4) (2021-11-29)
+
+
+### Features
+
+* introduce skip auto port forwarding flag ([e52b711](https://github.com/maidsafe/sn_launch_tool/commit/e52b71138eb7dd9a76e938094ae0c231b245e047))
+
 ### [0.9.3](https://github.com/maidsafe/sn_launch_tool/compare/v0.9.2...v0.9.3) (2021-11-15)
 
 ### [0.9.2](https://github.com/maidsafe/sn_launch_tool/compare/v0.9.1...v0.9.2) (2021-11-04)
