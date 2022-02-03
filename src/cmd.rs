@@ -9,7 +9,7 @@ use std::{
     thread,
     time::Duration,
 };
-use tracing::trace;
+use tracing::{debug, trace};
 
 const NODE_LIVENESS_TIMEOUT: Duration = Duration::from_secs(2);
 
@@ -18,6 +18,8 @@ pub(crate) struct NodeCmd<'a> {
     path: Cow<'a, OsStr>,
     envs: Vec<(Cow<'a, OsStr>, Cow<'a, OsStr>)>,
     args: NodeArgs<'a>,
+    // run w/ flamegraph
+    flame: bool,
 }
 
 impl<'a> NodeCmd<'a> {
@@ -31,11 +33,20 @@ impl<'a> NodeCmd<'a> {
             path: into_cow_os_str(path),
             envs: Default::default(),
             args: Default::default(),
+            flame: false,
         }
     }
 
     pub(crate) fn path(&self) -> &Path {
         Path::new(&self.path)
+    }
+
+    pub(crate) fn set_flame(&mut self, flame: bool) {
+        self.flame = flame
+    }
+
+    pub(crate) fn gen_flamegraph(&self) -> bool {
+        self.flame
     }
 
     pub(crate) fn args(&self) -> &NodeArgs {
@@ -95,18 +106,32 @@ impl<'a> NodeCmd<'a> {
 
     pub(crate) fn run(
         &self,
-        node_dir: impl AsRef<Path>,
+        node_name: &str,
+        node_dir: &Path,
         contacts: &[SocketAddr],
         genesis_key: Option<&str>,
     ) -> Result<()> {
-        let path_str = self.path().display().to_string();
-        trace!("Running '{}' with args {:?} ...", path_str, self.args);
+        let node_dir = node_dir.join(node_name);
+
+        let mut cmd = self.path().display().to_string();
+
+        let flame_on = self.gen_flamegraph();
+        let graph_output = format!("-o {}-flame.svg", node_name);
+
+        if flame_on {
+            cmd = "cargo".to_string();
+            // make a dir per node
+            std::fs::create_dir_all(node_name)?;
+            debug!("Flame graph will be stored: {:?}", graph_output);
+        }
+
+        trace!("Running '{cmd}' with args {:?} ...", self.args);
 
         let mut extra_args = NodeArgs::default();
         extra_args.push("--root-dir");
-        extra_args.push(node_dir.as_ref());
+        extra_args.push(node_dir.clone());
         extra_args.push("--log-dir");
-        extra_args.push(node_dir.as_ref());
+        extra_args.push(node_dir);
 
         if let Some(genesis_key_str) = genesis_key {
             trace!("Network's genesis key: {}", genesis_key_str);
@@ -127,7 +152,24 @@ impl<'a> NodeCmd<'a> {
             );
         }
 
-        Command::new(&path_str)
+        let mut the_cmd = Command::new(cmd.clone());
+        let additonal_flame_args = vec![
+            "flamegraph",
+            &graph_output,
+            "--root",
+            "--bin",
+            "sn_node",
+            "--",
+        ];
+        if flame_on {
+            debug!("Launching nodes via `cargo flamegraph`");
+            // we set the command ro run in each individal node dir (as each flamegraph uses a file `cargo-flamegraph.stacks` which cannot be renamed per per node)
+            // we set flamegraph to root as that's necesasry on mac
+            the_cmd
+                .current_dir(node_name)
+                .args(additonal_flame_args.clone());
+        }
+        the_cmd
             .args(&self.args)
             .args(&extra_args)
             .envs(self.envs.iter().map(
@@ -149,7 +191,24 @@ impl<'a> NodeCmd<'a> {
                 Ok(())
             })
             .wrap_err_with(|| {
-                format!("Failed to start '{}' with args '{:?}'", path_str, self.args)
+                let mut all_args = vec![];
+                if flame_on {
+                    // all_args.extend(additonal_flame_args);
+
+                    for arg in additonal_flame_args {
+                        let c = into_cow_os_str(arg);
+                        all_args.push(c);
+                    }
+                }
+
+                for arg in self.args.into_iter() {
+                    all_args.push(arg.clone());
+                }
+                for arg in extra_args.into_iter() {
+                    all_args.push(arg.clone());
+                }
+
+                format!("Failed to start '{}' with args '{:?}'", cmd, all_args)
             })?;
 
         Ok(())

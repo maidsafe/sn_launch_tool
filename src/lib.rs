@@ -51,8 +51,8 @@ pub struct Launch {
     interval: u64,
 
     /// Interval in seconds before deeming a peer to have timed out
-    #[structopt(long = "idle-timeout-msec", default_value = "5500")]
-    idle_timeout_msec: u64,
+    #[structopt(long = "idle-timeout-msec")]
+    idle_timeout_msec: Option<u64>,
 
     /// Interval in seconds between qp2p keep alive messages
     #[structopt(long = "keep-alive-interval-msec")]
@@ -80,8 +80,10 @@ impl Launch {
     pub fn run(&self) -> Result<()> {
         let mut node_cmd = self.common.node_cmd()?;
 
-        node_cmd.push_arg("--idle-timeout-msec");
-        node_cmd.push_arg(self.idle_timeout_msec.to_string());
+        if let Some(idle) = self.idle_timeout_msec {
+            node_cmd.push_arg("--idle-timeout-msec");
+            node_cmd.push_arg(idle.to_string());
+        }
 
         if let Some(keep_alive_interval_msec) = self.keep_alive_interval_msec {
             node_cmd.push_arg("--keep-alive-interval-msec");
@@ -107,6 +109,8 @@ impl Launch {
         if !self.add_nodes_to_existing_network {
             self.run_genesis(&node_cmd)?;
             thread::sleep(interval);
+
+            debug!("Genesis wait over...");
         }
 
         // Fetch node_conn_info from $HOME/.safe/node/node_connection_info.config.
@@ -138,7 +142,7 @@ impl Launch {
 
         // Let's launch genesis node now
         debug!("Launching genesis node (#1)...");
-        genesis_cmd.run(self.nodes_dir.join("sn-node-genesis"), &[], None)?;
+        genesis_cmd.run("sn-node-genesis", &self.nodes_dir, &[], None)?;
 
         Ok(())
     }
@@ -156,7 +160,8 @@ impl Launch {
             debug!("Launching node #{}...", node_idx)
         };
         node_cmd.run(
-            self.nodes_dir.join(format!("sn-node-{}", node_idx)),
+            &format!("sn-node-{}", node_idx),
+            &self.nodes_dir,
             contacts,
             Some(genesis_key_str),
         )?;
@@ -217,14 +222,14 @@ pub struct Join {
     #[structopt(long)]
     public_addr: Option<SocketAddr>,
 
-    /// Clear data directory created by a previous node run
-    #[structopt(long = "clear-data")]
-    clear_data: bool,
-
     /// Use this flag to skip automated port forwarding if you are having trouble joining a remote
     /// network. You can then setup 'manual' port forwarding on your router.
     #[structopt(long)]
     skip_auto_port_forwarding: bool,
+
+    /// Clear data directory created by a previous node run
+    #[structopt(long = "clear-data")]
+    clear_data: bool,
 }
 
 impl Join {
@@ -270,6 +275,7 @@ impl Join {
 
         debug!("Launching node...");
         node_cmd.run(
+            "", // no name passed
             &self.nodes_dir,
             &self.hard_coded_contacts,
             Some(&self.genesis_key),
@@ -306,6 +312,13 @@ struct CommonArgs {
     /// Run the section locally.
     #[structopt(long = "local")]
     is_local: bool,
+
+    /// Run the nodes using `cargo flamegraph` (which needs to be preinstalled.)
+    /// It is recommended to manually run `cargo flamegraph --root --bin=sn_node -- --first` to ensure
+    /// everything is built. (This command will fail dur to insufficient args, but that's okay, carry
+    /// testnetting w/ --flame thereafter)
+    #[structopt(long = "flame")]
+    flame: bool,
 }
 
 impl CommonArgs {
@@ -334,6 +347,10 @@ impl CommonArgs {
 
         if self.json_logs {
             cmd.push_arg("--json-logs");
+        }
+
+        if self.flame {
+            cmd.set_flame(self.flame);
         }
 
         debug!(
