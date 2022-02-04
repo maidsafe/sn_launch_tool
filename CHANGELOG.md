@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.9.5](https://github.com/maidsafe/sn_launch_tool/compare/v0.9.4...v0.9.5) (2022-02-04)
+
+
+### Features
+
+* enable flamegraph generation ([390fbe4](https://github.com/maidsafe/sn_launch_tool/commit/390fbe434e30dc4f4e5d1730e32284bb1dadfcd5))
+
 ### [0.9.4](https://github.com/maidsafe/sn_launch_tool/compare/v0.9.3...v0.9.4) (2021-11-29)
 
 
