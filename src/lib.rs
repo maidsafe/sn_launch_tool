@@ -63,7 +63,7 @@ pub struct Launch {
     nodes_dir: PathBuf,
 
     /// Number of nodes to spawn with the first one being the genesis. This number should be greater than 0.
-    #[structopt(short = "n", long, default_value = "11", env = "NODE_COUNT")]
+    #[structopt(short = "n", long, default_value = "15", env = "NODE_COUNT")]
     num_nodes: usize,
 
     /// IP used to launch the nodes with.
