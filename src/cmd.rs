@@ -3,7 +3,6 @@ use std::{
     borrow::Cow,
     ffi::{OsStr, OsString},
     fmt,
-    net::SocketAddr,
     path::Path,
     process::{Command, Stdio},
     thread,
@@ -104,13 +103,7 @@ impl<'a> NodeCmd<'a> {
         Ok(String::from_utf8_lossy(&version).trim().to_string())
     }
 
-    pub(crate) fn run(
-        &self,
-        node_name: &str,
-        node_dir: &Path,
-        contacts: &[SocketAddr],
-        genesis_key: Option<&str>,
-    ) -> Result<()> {
+    pub(crate) fn run(&self, node_name: &str, node_dir: &Path) -> Result<()> {
         let node_dir = node_dir.join(node_name);
 
         let mut cmd = self.path().display().to_string();
@@ -132,25 +125,6 @@ impl<'a> NodeCmd<'a> {
         extra_args.push(node_dir.clone());
         extra_args.push("--log-dir");
         extra_args.push(node_dir);
-
-        if let Some(genesis_key_str) = genesis_key {
-            trace!("Network's genesis key: {}", genesis_key_str);
-            extra_args.push("--genesis-key");
-            extra_args.push(genesis_key_str);
-        }
-
-        if !contacts.is_empty() {
-            extra_args.push("--hard-coded-contacts");
-            extra_args.push(
-                serde_json::to_string(
-                    &contacts
-                        .iter()
-                        .map(|contact| contact.to_string())
-                        .collect::<Vec<_>>(),
-                )
-                .wrap_err("Failed to generate genesis contacts list parameter")?,
-            );
-        }
 
         let mut the_cmd = Command::new(cmd.clone());
         let additonal_flame_args = vec![
