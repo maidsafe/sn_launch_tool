@@ -7,9 +7,9 @@
 // specific language governing permissions and limitations relating to use of the SAFE Network
 // Software.
 
+use clap::Parser;
 use eyre::Result;
 use sn_launch_tool::Launch;
-use structopt::StructOpt;
 use tracing::debug;
 
 fn main() -> Result<()> {
@@ -18,5 +18,5 @@ fn main() -> Result<()> {
 
     debug!("Launching Safe nodes...");
 
-    Launch::from_args().run()
+    Launch::parse().run()
 }
