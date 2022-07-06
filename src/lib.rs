@@ -20,7 +20,6 @@ use std::{
     thread,
     time::Duration,
 };
-use structopt::StructOpt;
 use tracing::{debug, info};
 
 use cmd::NodeCmd;
@@ -36,37 +35,44 @@ const DEFAULT_RUST_LOG: &str = "safe_network=debug";
 /// Tool to launch Safe nodes to form a local single-section network
 ///
 /// Currently, this tool runs nodes on localhost (since that's the default if no IP address is given to the nodes)
-#[derive(Debug, StructOpt)]
+#[derive(Debug, clap::StructOpt)]
+#[clap(version)]
 pub struct Launch {
-    #[structopt(flatten)]
+    #[clap(flatten)]
     common: CommonArgs,
 
     /// Interval in milliseconds between launching each of the nodes
-    #[structopt(short = "i", long, default_value = "100")]
+    #[clap(short = 'i', long, default_value = "100", value_parser)]
     interval: u64,
 
     /// Interval in seconds before deeming a peer to have timed out
-    #[structopt(long = "idle-timeout-msec")]
+    #[clap(long = "idle-timeout-msec", value_parser)]
     idle_timeout_msec: Option<u64>,
 
     /// Interval in seconds between qp2p keep alive messages
-    #[structopt(long = "keep-alive-interval-msec")]
+    #[clap(long = "keep-alive-interval-msec", value_parser)]
     keep_alive_interval_msec: Option<u64>,
 
     /// Path where the output directories for all the nodes are written
-    #[structopt(short = "d", long, default_value = "./nodes")]
+    #[clap(short = 'd', long, default_value = "./nodes", value_parser)]
     nodes_dir: PathBuf,
 
     /// Number of nodes to spawn with the first one being the genesis. This number should be greater than 0.
-    #[structopt(short = "n", long, default_value = "15", env = "NODE_COUNT")]
+    #[clap(
+        short = 'n',
+        long,
+        default_value = "15",
+        env = "NODE_COUNT",
+        value_parser
+    )]
     num_nodes: usize,
 
     /// IP used to launch the nodes with.
-    #[structopt(long = "ip")]
+    #[clap(long = "ip", value_parser)]
     ip: Option<String>,
 
     /// IP used to launch the nodes with.
-    #[structopt(long = "add")]
+    #[clap(long = "add", value_parser)]
     add_nodes_to_existing_network: bool,
 }
 
@@ -174,34 +180,34 @@ impl Launch {
 }
 
 /// Run a Safe node to join a network
-#[derive(Debug, StructOpt)]
+#[derive(Debug, clap::StructOpt)]
 pub struct Join {
-    #[structopt(flatten)]
+    #[clap(flatten)]
     common: CommonArgs,
 
     /// Path where the output directories for all the nodes are written
-    #[structopt(short = "d", long, default_value = "./nodes")]
+    #[clap(short = 'd', long, default_value = "./nodes", value_parser)]
     nodes_dir: PathBuf,
 
     /// Max storage to use while running the node
-    #[structopt(short, long)]
+    #[clap(short, long, value_parser)]
     max_capacity: Option<u64>,
 
     /// Local network address for the node, eg 192.168.1.100:12000
-    #[structopt(long)]
+    #[clap(long, value_parser)]
     local_addr: Option<SocketAddr>,
 
     /// Public address for the node
-    #[structopt(long)]
+    #[clap(long, value_parser)]
     public_addr: Option<SocketAddr>,
 
     /// Use this flag to skip automated port forwarding if you are having trouble joining a remote
     /// network. You can then setup 'manual' port forwarding on your router.
-    #[structopt(long)]
+    #[clap(long, value_parser)]
     skip_auto_port_forwarding: bool,
 
     /// Clear data directory created by a previous node run
-    #[structopt(long = "clear-data")]
+    #[clap(long = "clear-data", value_parser)]
     clear_data: bool,
 }
 
@@ -252,33 +258,33 @@ impl Join {
     }
 }
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, clap::StructOpt)]
 struct CommonArgs {
     /// Path where to locate sn_node/sn_node.exe binary. The SN_NODE_PATH env var can be also used to set the path
-    #[structopt(short = "p", long, env = "SN_NODE_PATH")]
+    #[clap(short = 'p', long, env = "SN_NODE_PATH", value_parser)]
     node_path: Option<PathBuf>,
 
     /// Verbosity level for nodes logs (default: INFO)
-    #[structopt(short = "y", long, parse(from_occurrences))]
+    #[clap(short = 'y', long, action = clap::ArgAction::Count)]
     nodes_verbosity: u8,
 
     /// RUST_LOG env var value to launch the nodes with.
-    #[structopt(short = "l", long)]
+    #[clap(short = 'l', long, value_parser)]
     rust_log: Option<String>,
 
     /// Output logs in json format for easier processing.
-    #[structopt(long)]
+    #[clap(long, value_parser)]
     json_logs: bool,
 
     /// Run the section locally.
-    #[structopt(long = "local")]
+    #[clap(long = "local", value_parser)]
     is_local: bool,
 
     /// Run the nodes using `cargo flamegraph` (which needs to be preinstalled.)
     /// It is recommended to manually run `cargo flamegraph --root --bin=sn_node -- --first` to ensure
     /// everything is built. (This command will fail dur to insufficient args, but that's okay, carry
     /// testnetting w/ --flame thereafter)
-    #[structopt(long = "flame")]
+    #[clap(long = "flame", value_parser)]
     flame: bool,
 }
 
