@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.10.0](https://github.com/maidsafe/sn_launch_tool/compare/v0.9.9...v0.10.0) (2022-07-06)
+
+
+### ⚠ BREAKING CHANGES
+
+* **deps:** 
+
+* **deps:** replace StructOpt with Clap ([34a6c7c](https://github.com/maidsafe/sn_launch_tool/commit/34a6c7c7b14636a85aed20095ea2590df273b3a5))
+
 ### [0.9.9](https://github.com/maidsafe/sn_launch_tool/compare/v0.9.8...v0.9.9) (2022-06-30)
 
 ### [0.9.8](https://github.com/maidsafe/sn_launch_tool/compare/v0.9.7...v0.9.8) (2022-03-05)
