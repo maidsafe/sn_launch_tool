@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.11.0](https://github.com/maidsafe/sn_launch_tool/compare/v0.10.1...v0.11.0) (2022-08-08)
+
+
+### ⚠ BREAKING CHANGES
+
+* set the --network-contacts-file node argument to the genesis node's prefix_map path
+
+### Features
+
+* set the --network-contacts-file node argument to the genesis node's prefix_map path ([aa2ede9](https://github.com/maidsafe/sn_launch_tool/commit/aa2ede9b8b6088ba6401871b9596d6df2fb74062))
+* set the genesis node as the default contact for local clients to bootstrap to ([77e0074](https://github.com/maidsafe/sn_launch_tool/commit/77e00745b87f0ef6eaadab843863fdbe8e922356))
+
 ### [0.10.1](https://github.com/maidsafe/sn_launch_tool/compare/v0.10.0...v0.10.1) (2022-07-11)
 
 ## [0.10.0](https://github.com/maidsafe/sn_launch_tool/compare/v0.9.9...v0.10.0) (2022-07-06)
