@@ -114,12 +114,12 @@ impl Launch {
             debug!("Genesis wait over...");
         }
 
+        let genesis_contacts_filepath = self.nodes_dir.join("sn-node-genesis").join("prefix_map");
+
         let node_ids = self.node_ids()?;
         if !node_ids.is_empty() {
-            let genesis_contacts_filepath =
-                self.nodes_dir.join("sn-node-genesis").join("prefix_map");
             node_cmd.push_arg("--network-contacts-file");
-            node_cmd.push_arg(genesis_contacts_filepath);
+            node_cmd.push_arg(&genesis_contacts_filepath);
 
             debug!(
                 "Common node args for launching the network: {:?}",
@@ -132,6 +132,22 @@ impl Launch {
                 thread::sleep(interval);
             }
         }
+
+        // Let's copy the genesis' prefix map file to the default location for clients to use
+        let client_prefixmap_dir = dirs_next::home_dir()
+            .ok_or_else(|| eyre!("Could not read user's home directory".to_string()))?
+            .join(".safe")
+            .join("prefix_maps");
+
+        info!(
+            "Copying network contacts file to {} for local clients to bootstrap to the network",
+            client_prefixmap_dir.display()
+        );
+        fs::create_dir_all(&client_prefixmap_dir)?;
+        fs::copy(
+            genesis_contacts_filepath,
+            client_prefixmap_dir.join("default"),
+        )?;
 
         info!("Done!");
         Ok(())
