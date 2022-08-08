@@ -1,4 +1,4 @@
-// Copyright 2020 MaidSafe.net limited.
+// Copyright 2022 MaidSafe.net limited.
 //
 // This SAFE Network Software is licensed to you under the MIT license <LICENSE-MIT
 // http://opensource.org/licenses/MIT> or the Modified BSD license <LICENSE-BSD
@@ -114,13 +114,17 @@ impl Launch {
             debug!("Genesis wait over...");
         }
 
-        debug!(
-            "Common node args for launching the network: {:?}",
-            node_cmd.args()
-        );
-
         let node_ids = self.node_ids()?;
         if !node_ids.is_empty() {
+            let genesis_contacts_filepath =
+                self.nodes_dir.join("sn-node-genesis").join("prefix_map");
+            node_cmd.push_arg("--network-contacts-file");
+            node_cmd.push_arg(genesis_contacts_filepath);
+
+            debug!(
+                "Common node args for launching the network: {:?}",
+                node_cmd.args()
+            );
             info!("Launching nodes {:?}", node_ids);
 
             for i in node_ids {
@@ -241,6 +245,10 @@ impl Join {
         if self.clear_data {
             node_cmd.push_arg("--clear-data");
         }
+
+        let genesis_contacts_filepath = self.nodes_dir.join("sn-node-genesis").join("prefix_map");
+        node_cmd.push_arg("--network-contacts-file");
+        node_cmd.push_arg(genesis_contacts_filepath);
 
         debug!("Launching node...");
         node_cmd.run(

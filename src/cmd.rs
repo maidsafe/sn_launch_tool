@@ -143,6 +143,7 @@ impl<'a> NodeCmd<'a> {
                 .current_dir(node_name)
                 .args(additonal_flame_args.clone());
         }
+
         the_cmd
             .args(&self.args)
             .args(&extra_args)
