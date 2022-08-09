@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.11.1](https://github.com/maidsafe/sn_launch_tool/compare/v0.11.0...v0.11.1) (2022-08-09)
+
+
+### Bug Fixes
+
+* use a specific argument to set the network contacts file path for join API ([97f24af](https://github.com/maidsafe/sn_launch_tool/commit/97f24af009aaf1a899e7c707d637806aefa40a93))
+
 ## [0.11.0](https://github.com/maidsafe/sn_launch_tool/compare/v0.10.1...v0.11.0) (2022-08-08)
 
 
