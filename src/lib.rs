@@ -229,6 +229,10 @@ pub struct Join {
     /// Clear data directory created by a previous node run
     #[clap(long = "clear-data", value_parser)]
     clear_data: bool,
+
+    /// Network contacts list file path
+    #[clap(long, value_parser)]
+    network_contacts_file: PathBuf,
 }
 
 impl Join {
@@ -262,9 +266,8 @@ impl Join {
             node_cmd.push_arg("--clear-data");
         }
 
-        let genesis_contacts_filepath = self.nodes_dir.join("sn-node-genesis").join("prefix_map");
         node_cmd.push_arg("--network-contacts-file");
-        node_cmd.push_arg(genesis_contacts_filepath);
+        node_cmd.push_arg(self.network_contacts_file.clone());
 
         debug!("Launching node...");
         node_cmd.run(
