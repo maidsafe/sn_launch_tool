@@ -114,7 +114,7 @@ impl Launch {
             debug!("Genesis wait over...");
         }
 
-        let genesis_contacts_filepath = self.nodes_dir.join("sn-node-genesis").join("prefix_map");
+        let genesis_contacts_filepath = self.nodes_dir.join("sn-node-genesis").join("section_tree");
 
         let node_ids = self.node_ids()?;
         if !node_ids.is_empty() {
@@ -133,20 +133,20 @@ impl Launch {
             }
         }
 
-        // Let's copy the genesis' prefix map file to the default location for clients to use
-        let client_prefixmap_dir = dirs_next::home_dir()
+        // Let's copy the genesis' section_tree file to the default location for clients to use
+        let client_network_contacts_dir = dirs_next::home_dir()
             .ok_or_else(|| eyre!("Could not read user's home directory".to_string()))?
             .join(".safe")
-            .join("prefix_maps");
+            .join("network_contacts");
 
         info!(
             "Copying network contacts file to {} for local clients to bootstrap to the network",
-            client_prefixmap_dir.display()
+            client_network_contacts_dir.display()
         );
-        fs::create_dir_all(&client_prefixmap_dir)?;
+        fs::create_dir_all(&client_network_contacts_dir)?;
         fs::copy(
             genesis_contacts_filepath,
-            client_prefixmap_dir.join("default"),
+            client_network_contacts_dir.join("default"),
         )?;
 
         info!("Done!");
