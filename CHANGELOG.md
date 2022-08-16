@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.12.0](https://github.com/maidsafe/sn_launch_tool/compare/v0.11.1...v0.12.0) (2022-08-16)
+
+
+### ⚠ BREAKING CHANGES
+
+* change target path where to copy network contacts file for clients to ~/.safe/network_contacts
+
+* change target path where to copy network contacts file for clients to ~/.safe/network_contacts ([45fd3d8](https://github.com/maidsafe/sn_launch_tool/commit/45fd3d81e6a41cda6116b2aaa8bbbdbf9f510319))
+
 ### [0.11.1](https://github.com/maidsafe/sn_launch_tool/compare/v0.11.0...v0.11.1) (2022-08-09)
 
 
