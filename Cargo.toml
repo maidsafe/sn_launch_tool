@@ -1,6 +1,6 @@
 [package]
 name = "sn_launch_tool"
-version = "0.12.0"
+version = "0.12.1"
 description = "SAFE API"
 authors = [ "Gabriel Viganotti <gabrielviganotti@gmail.com>" ]
 license = "MIT OR BSD-3-Clause"
