@@ -76,7 +76,7 @@ impl<'a> NodeCmd<'a> {
 
     pub(crate) fn version(&self) -> Result<String> {
         let version = Command::new(&self.path)
-            .args(&["-V"])
+            .args(["-V"])
             .output()
             .map_or_else(
                 |error| Err(eyre!(error)),
