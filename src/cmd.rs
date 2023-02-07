@@ -109,7 +109,7 @@ impl<'a> NodeCmd<'a> {
         let mut cmd = self.path().display().to_string();
 
         let flame_on = self.gen_flamegraph();
-        let graph_output = format!("-o {}-flame.svg", node_name);
+        let graph_output = format!("-o {node_name}-flame.svg");
 
         if flame_on {
             cmd = "cargo".to_string();
@@ -183,7 +183,7 @@ impl<'a> NodeCmd<'a> {
                     all_args.push(arg.clone());
                 }
 
-                format!("Failed to start '{}' with args '{:?}'", cmd, all_args)
+                format!("Failed to start '{cmd}' with args '{all_args:?}'")
             })?;
 
         Ok(())
