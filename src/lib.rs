@@ -97,7 +97,7 @@ impl Launch {
 
         if let Some(ip) = &self.ip {
             node_cmd.push_arg("--local-addr");
-            node_cmd.push_arg(format!("{}:0", ip));
+            node_cmd.push_arg(format!("{ip}:0"));
         } else if self.common.is_local {
             node_cmd.push_arg("--local-addr");
             node_cmd.push_arg("127.0.0.1:0");
@@ -171,7 +171,7 @@ impl Launch {
         } else {
             debug!("Launching node #{}...", node_idx)
         };
-        node_cmd.run(&format!("sn-node-{}", node_idx), &self.nodes_dir)?;
+        node_cmd.run(&format!("sn-node-{node_idx}"), &self.nodes_dir)?;
 
         Ok(())
     }
