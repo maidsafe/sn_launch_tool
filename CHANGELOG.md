@@ -2,6 +2,8 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.12.2](https://github.com/maidsafe/sn_launch_tool/compare/v0.12.1...v0.12.2) (2023-02-09)
+
 ### [0.12.2](https://github.com/maidsafe/sn_launch_tool/compare/v0.12.1...v0.12.2) (2023-02-07)
 
 ### [0.12.1](https://github.com/maidsafe/sn_launch_tool/compare/v0.12.0...v0.12.1) (2022-11-08)
