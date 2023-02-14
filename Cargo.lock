@@ -388,7 +388,7 @@ checksum = "a507befe795404456341dfab10cef66ead4c041f62b8b11bbb92bffe5d0953e0"
 
 [[package]]
 name = "sn_launch_tool"
-version = "0.12.2"
+version = "0.13.0"
 dependencies = [
  "clap",
  "color-eyre",
