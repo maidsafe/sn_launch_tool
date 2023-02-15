@@ -153,6 +153,12 @@ impl Launch {
         // Set genesis node's command arguments
         let mut genesis_cmd = node_cmd.clone();
         genesis_cmd.push_arg("--first");
+        // `--first` requires a public address. Port `0` means it will be the same as locally bound port.
+        if let Some(ip) = &self.ip {
+            genesis_cmd.push_arg(format!("{ip}:0"));
+        } else if self.common.is_local {
+            genesis_cmd.push_arg("127.0.0.1:0");
+        }
 
         // Let's launch genesis node now
         debug!("Launching genesis node (#1)...");
